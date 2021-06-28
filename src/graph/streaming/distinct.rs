@@ -24,15 +24,18 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
-impl<T, S> GraphStream<S>
+pub trait Distinct {
+    fn tidemark(self) -> f32;
+}
+
+impl<T> Distinct for T
 where
-    S: Iterator<Item = T>,
-    T: Hash,
+    T: core::iter::Iterator<Item = (i32, i32)> + Sized,
 {
     fn tidemark(self) -> f32 {
         let mut z = 0;
 
-        self.0.for_each(|token| {
+        self.for_each(|token| {
             let hash = calculate_hash(&token);
             let zeros = zeros(hash);
             if zeros < z {

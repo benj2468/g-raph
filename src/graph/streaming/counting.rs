@@ -1,17 +1,18 @@
-use super::GraphStream;
 use rand::Rng;
-use std::hash::Hash;
 
-impl<S, T> GraphStream<S>
+pub trait Coutning {
+    fn morris(self) -> i32;
+}
+
+impl<T> Coutning for T
 where
-    S: Iterator<Item = T>,
-    T: Hash,
+    T: core::iter::Iterator<Item = (i32, i32)> + Sized,
 {
     fn morris(self) -> i32 {
         let mut x = 0;
         let mut rng = rand::thread_rng();
 
-        self.0.for_each(|_| {
+        self.for_each(|_| {
             let prob = (2 as i32).pow(x);
 
             if rng.gen_range(0..prob) == 0 {

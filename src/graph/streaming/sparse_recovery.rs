@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use super::*;
 
 type SizeLimit = u32;
@@ -9,6 +11,20 @@ pub struct OneSparseRecovery {
     p: i32,
     r: u64,
     n: SizeLimit,
+}
+
+impl Debug for OneSparseRecovery {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self { l, z, p, r, n } = self;
+        write!(
+            f,
+            "-------\n
+        Init Values: r: {:?}, n: {:?}\n
+        Fingerprints: l: {:?}, z: {:?}, p: {:?} \n
+        -------",
+            r, n, l, z, p
+        )
+    }
 }
 
 const bertrand_primes: &[u64] = &[
@@ -44,6 +60,12 @@ pub enum OneSparseRecoveryOutput {
 }
 
 impl OneSparseRecovery {
+    pub fn init(n: u32) -> Self {
+        let r = find_prime_n_n2(n.pow(2));
+        let (mut l, mut z, mut p) = (0, 0, 0);
+
+        OneSparseRecovery { l, z, p, r, n }
+    }
     pub fn feed(&mut self, token: (u32, i32)) {
         let (coordinate, value) = token;
         self.l += value;
@@ -69,18 +91,6 @@ impl OneSparseRecovery {
                 OneSparseRecoveryOutput::VeryLikely(l, divided.round() as u32)
             }
         }
-    }
-}
-
-impl<S> GraphStream<S>
-where
-    S: Iterator<Item = (i32, i32)>,
-{
-    pub fn one_sparse_detection(n: u32) -> OneSparseRecovery {
-        let r = find_prime_n_n2(n.pow(2));
-        let (mut l, mut z, mut p) = (0, 0, 0);
-
-        OneSparseRecovery { l, z, p, r, n }
     }
 }
 
