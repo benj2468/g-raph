@@ -1,21 +1,61 @@
 use std::fmt::Debug;
 
-use super::*;
+use rand::Rng;
 
-type SizeLimit = u32;
+#[derive(Clone, Copy)]
+pub struct FiniteField(u64);
+
+impl FiniteField {
+    fn new(size: u64) -> Self {
+        Self(size)
+    }
+    fn power(&self, base: i128, expo: u32) -> u64 {
+        if expo == 0 {
+            return 1;
+        }
+        self.multiply(base, self.power(base, expo - 1))
+    }
+
+    fn multiply(&self, v1: i128, v2: u64) -> u64 {
+        let v = v1 as i128 * v2 as i128;
+        if v < 0 {
+            let rev: u64 = -v as u64;
+            self.0 - rev
+        } else {
+            (v as u64).rem_euclid(self.0)
+        }
+
+        // todo!()
+    }
+    fn addition(&self, v1: u64, v2: u64) -> u64 {
+        (v1 + v2).rem_euclid(self.0)
+    }
+    fn subtraction(&self, v1: u64, v2: u64) -> u64 {
+        if v2 > v1 {
+            let minus = v2 - v1;
+            self.0 - minus
+        } else {
+            v1 - v2
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct OneSparseRecovery {
+    /// Fingerprint
     l: i32,
     z: i32,
-    p: i32,
+    p: u64,
+
+    /// Init values
     r: u64,
-    n: SizeLimit,
+    n: u32,
+    prime_field: FiniteField,
 }
 
 impl Debug for OneSparseRecovery {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self { l, z, p, r, n } = self;
+        let Self { l, z, p, r, n, .. } = self;
         write!(
             f,
             "-------\n
@@ -53,6 +93,7 @@ fn find_prime_n_n2(n: u32) -> u64 {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum OneSparseRecoveryOutput {
     Zero,
     VeryLikely(i32, u32),
@@ -61,31 +102,62 @@ pub enum OneSparseRecoveryOutput {
 
 impl OneSparseRecovery {
     pub fn init(n: u32) -> Self {
-        let r = find_prime_n_n2(n.pow(2));
+        let mut rng = rand::thread_rng();
+        let prime_field = find_prime_n_n2(n.pow(2));
+
+        let r = rng.gen_range(0..prime_field);
+
         let (mut l, mut z, mut p) = (0, 0, 0);
 
-        OneSparseRecovery { l, z, p, r, n }
+        OneSparseRecovery {
+            l,
+            z,
+            p,
+            r,
+            n,
+            prime_field: FiniteField::new(prime_field),
+        }
     }
-    pub fn feed(&mut self, token: (u32, i32)) {
+    /// (j, c) = token
+    ///
+    /// j \in [n]
+    /// c \in {-1, 1} - false -> -1; true -> 1
+    pub fn feed(&mut self, token: (u32, bool)) {
         let (coordinate, value) = token;
-        self.l += value;
-        self.z += value * coordinate as i32;
+        let value_int = if value { 1 } else { -1 };
+        self.l += value_int;
+        self.z += value_int * coordinate as i32;
 
-        let power = self.r.pow(coordinate) as i32;
-        self.p += value * power;
+        let power = self.prime_field.power(self.r as i128, coordinate);
+
+        self.p = if value {
+            self.prime_field.addition(self.p, power)
+        } else {
+            self.prime_field.subtraction(self.p, power)
+        };
     }
 
     pub fn query(self) -> OneSparseRecoveryOutput {
-        let Self { l, z, p, r, n } = self;
-        if l == z && z == p {
+        let Self {
+            l,
+            z,
+            p,
+            r,
+            prime_field,
+            ..
+        } = self;
+        if p == 0 && z == 0 && l == z {
             OneSparseRecoveryOutput::Zero
         } else {
-            let divided = (z as f64) / (l as f64);
+            let divided = (z as f32) / (l as f32);
             if divided.round() != divided {
                 OneSparseRecoveryOutput::NotOneSparse
-            } else if p != (l * r.pow(divided.round() as u32) as i32) {
-                // This relies on the premise that z / l will always be within [0,n]
-                // I'm not sure if that's a guarantee, but I think it is considering our use of a Field?
+            } else if p
+                != prime_field.multiply(
+                    l as i128,
+                    prime_field.power(r as i128, divided.round() as u32),
+                )
+            {
                 OneSparseRecoveryOutput::NotOneSparse
             } else {
                 OneSparseRecoveryOutput::VeryLikely(l, divided.round() as u32)
@@ -105,5 +177,86 @@ mod test {
         let prime = find_prime_n_n2(n);
 
         assert_eq!(prime, 23)
+    }
+
+    #[test]
+    fn true_positive() {
+        let stream: Vec<(u32, bool)> = vec![
+            (0, true),
+            (9, true),
+            (7, true),
+            (6, true),
+            (7, true),
+            (9, true),
+            (7, true),
+            (9, false),
+            (7, false),
+            (9, false),
+            (7, false),
+            (0, false),
+            (7, false),
+        ];
+
+        let mut recover = OneSparseRecovery::init(10);
+
+        stream.into_iter().for_each(|token| recover.feed(token));
+
+        let res = recover.query();
+
+        assert_eq!(res, OneSparseRecoveryOutput::VeryLikely(1, 6))
+    }
+
+    #[test]
+    fn true_zero() {
+        let stream: Vec<(u32, bool)> = vec![
+            (0, true),
+            (9, true),
+            (7, true),
+            (6, true),
+            (7, true),
+            (9, true),
+            (7, true),
+            (9, false),
+            (7, false),
+            (9, false),
+            (7, false),
+            (0, false),
+            (7, false),
+            (6, false),
+        ];
+
+        let mut recover = OneSparseRecovery::init(10);
+
+        stream.into_iter().for_each(|token| recover.feed(token));
+
+        let res = recover.query();
+
+        assert_eq!(res, OneSparseRecoveryOutput::Zero)
+    }
+
+    #[test]
+    fn true_negative() {
+        let stream: Vec<(u32, bool)> = vec![
+            (0, true),
+            (9, true),
+            (7, true),
+            (6, true),
+            (7, true),
+            (9, true),
+            (7, true),
+            (9, false),
+            (7, false),
+            (9, false),
+            (7, false),
+            (0, false),
+        ];
+
+        let mut recover = OneSparseRecovery::init(10);
+
+        stream.into_iter().for_each(|token| recover.feed(token));
+
+        let res = recover.query();
+
+        assert_eq!(res, OneSparseRecoveryOutput::NotOneSparse)
     }
 }
