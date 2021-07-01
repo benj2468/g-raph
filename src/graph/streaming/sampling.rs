@@ -1,6 +1,46 @@
-use rand::Rng;
+use rand::distributions::{Distribution, Uniform};
 
 use crate::graph::streaming::sparse_recovery::{OneSparseRecovery, OneSparseRecoveryOutput};
+
+#[derive(Debug)]
+pub struct HashFunction {
+    a: Vec<Vec<u32>>,
+    b: Vec<u32>,
+}
+
+impl HashFunction {
+    fn init(n: u32, l: u32) -> Self {
+        let (mut a, mut b) = (vec![], vec![]);
+        let gen = Uniform::new_inclusive(0, 1);
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..l {
+            let mut a_row = vec![];
+            for _ in 0..n {
+                a_row.push(gen.sample(&mut rng));
+            }
+            a.push(a_row);
+            b.push(gen.sample(&mut rng));
+        }
+
+        Self { a, b }
+    }
+    fn is_zero(&self, x: u32) -> bool {
+        // Then, convert x, which should be in the range of [n], into the e_x matrix
+        self.a
+            .iter()
+            .zip(self.b.iter())
+            .find_map(|(a, b)| {
+                let v = a.get(x as usize).unwrap();
+                if *v == 0 {
+                    None
+                } else {
+                    Some(v)
+                }
+            })
+            .is_none()
+    }
+}
 
 pub trait L0Sampling {
     fn l_zero_sampling(self, n: u32) -> Option<(u32, i32)>;
@@ -8,7 +48,7 @@ pub trait L0Sampling {
 
 impl<T> L0Sampling for T
 where
-    T: core::iter::Iterator<Item = (i32, i32)> + Sized,
+    T: core::iter::Iterator<Item = (u32, bool)> + Sized,
 {
     /// Sample a coordinate at random from a high-demensional vector
     ///
@@ -16,35 +56,24 @@ where
     fn l_zero_sampling(self, n: u32) -> Option<(u32, i32)> {
         // Initialization
         let mut data_structure = vec![];
-        for _ in 0..(n as f32).ln().round() as u32 {
+        for l in 0..(n as f32).ln().round() as u32 {
             let recover = OneSparseRecovery::init(n);
+            let hash_function = HashFunction::init(n, l);
 
-            data_structure.push(recover);
+            data_structure.push((recover, hash_function));
         }
 
         // Process
-        let mut rng = rand::thread_rng();
         self.for_each(|(j, c)| {
-            data_structure
-                .iter_mut()
-                .enumerate()
-                .for_each(|(l, recovery)| {
-                    if rng.gen_range(0..((2 as u32).pow(l as u32))) == 0 {
-                        recovery.feed((j as u32, c))
-                    }
-                })
-        });
-
-        #[cfg(test)]
-        println!("Current State:");
-
-        #[cfg(test)]
-        data_structure.iter().for_each(|recover| {
-            println!("{:?}", recover);
+            data_structure.iter_mut().for_each(|(recovery, hasher)| {
+                if hasher.is_zero(j) {
+                    recovery.feed((j, c))
+                }
+            })
         });
 
         // Output
-        for recovery in data_structure {
+        for (recovery, _) in data_structure {
             match recovery.query() {
                 OneSparseRecoveryOutput::VeryLikely(l, i) => return Some((i, l)),
                 _ => continue,
@@ -58,4 +87,36 @@ where
 #[cfg(test)]
 mod test {
     // Need testing, not sure what testing looks like thought
+
+    use super::*;
+
+    #[test]
+    fn hash_functions() {
+        let n = 5;
+        for i in 0..n {
+            let hash = HashFunction::init(n, i);
+            println!("{:?}: {:?} - {:?}", i, hash, hash.is_zero(i));
+        }
+    }
+
+    #[test]
+    fn sampling() {
+        let stream = vec![
+            (0, true),
+            (6, true),
+            (7, true),
+            (6, true),
+            (7, true),
+            (6, false),
+            (3, true),
+            (0, true),
+            (3, false),
+        ]
+        .into_iter()
+        .l_zero_sampling(10);
+
+        // Pick a value uniformly at random from the distinct values: 0, 6, 7
+
+        stream.map(|(cord, _)| assert!([0, 6, 7].contains(&cord)));
+    }
 }
