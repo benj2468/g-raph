@@ -56,7 +56,7 @@ where
     fn l_zero_sampling(self, n: u32) -> Option<(u32, i32)> {
         // Initialization
         let mut data_structure = vec![];
-        for l in 0..(n as f32).ln().round() as u32 {
+        for l in 0..(n as f32).log2().round() as u32 {
             let recover = OneSparseRecovery::init(n);
             let hash_function = HashFunction::init(n, l);
 
@@ -95,12 +95,10 @@ mod test {
         let n = 5;
         for i in 0..n {
             let hash = HashFunction::init(n, i);
-            println!("{:?}: {:?} - {:?}", i, hash, hash.is_zero(i));
         }
     }
 
-    #[test]
-    fn sampling() {
+    fn sampling() -> Option<bool> {
         let stream = vec![
             (0, true),
             (6, true),
@@ -115,8 +113,36 @@ mod test {
         .into_iter()
         .l_zero_sampling(10);
 
-        // Pick a value uniformly at random from the distinct values: 0, 6, 7
+        if let Some((cord, _)) = stream {
+            Some([0, 6, 7].contains(&cord))
+        } else {
+            None
+        }
+    }
 
-        stream.map(|(cord, _)| assert!([0, 6, 7].contains(&cord)));
+    #[test]
+    fn sampling_test() {
+        let mut fails = 0;
+        let mut incorrect = 0;
+
+        let n = 1000;
+
+        for _ in 0..n {
+            let result = sampling();
+            if let Some(b) = result {
+                if !b {
+                    incorrect += 1;
+                }
+            } else {
+                fails += 1;
+            }
+        }
+
+        println!(
+            "Failed: {:?} / {n},\nIncorrect: {:?} / {n}",
+            fails,
+            incorrect,
+            n = n
+        )
     }
 }
