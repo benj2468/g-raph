@@ -1,7 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet, LinkedList},
+    collections::{HashMap, HashSet},
     hash::Hash,
-    iter::FromIterator,
 };
 
 #[derive(Debug)]
@@ -95,5 +94,5 @@ where
     }
 }
 
-mod static_a;
-mod streaming;
+pub mod static_a;
+pub mod streaming;

@@ -1,6 +1,22 @@
+/// Sampling Functions
+///
+/// This File is a WIP
+///
+/// Current includes:
+///
+/// 1. l-0 Sampling, an implementation over an iterator to consume it and sample a single element.
 use rand::distributions::{Distribution, Uniform};
 
 use crate::graph::streaming::sparse_recovery::{OneSparseRecovery, OneSparseRecoveryOutput};
+
+/// Data Structure for storing a hash function
+///
+/// The hash functions are 2-universal and are F: {0,1}^n --> {0,1}^l
+///
+/// The functions are of the form f(x) = Ax + b
+///
+/// A := {0,1}^{n,l}
+/// b :- {0,1}^l
 
 #[derive(Debug)]
 pub struct HashFunction {
@@ -9,6 +25,7 @@ pub struct HashFunction {
 }
 
 impl HashFunction {
+    /// Initialize a new hash function. Practically this is simply creating an A and a b value, randomly
     fn init(n: u32, l: u32) -> Self {
         let (mut a, mut b) = (vec![], vec![]);
         let gen = Uniform::new_inclusive(0, 1);
@@ -25,24 +42,29 @@ impl HashFunction {
 
         Self { a, b }
     }
+    /// Computes the boolean value of f(x) = *0*
     fn is_zero(&self, x: u32) -> bool {
-        // Then, convert x, which should be in the range of [n], into the e_x matrix
         self.a
             .iter()
             .zip(self.b.iter())
             .find_map(|(a, b)| {
-                let v = a.get(x as usize).unwrap();
-                if *v == 0 {
+                let value = a.get(x as usize).unwrap() + b;
+                if value == 0 {
                     None
                 } else {
-                    Some(v)
+                    Some(value)
                 }
             })
             .is_none()
     }
 }
 
+/// L-0 Sampling
 pub trait L0Sampling {
+    /// Sample a coordinate at random from a high-demensional vector (vector of size n)
+    ///
+    /// In l-0-sampling we sample each coordinate with probability 1/||f||_0,
+    /// meaning uniformly from the set of all distinct coordinates
     fn l_zero_sampling(self, n: u32) -> Option<(u32, i32)>;
 }
 
@@ -50,9 +72,6 @@ impl<T> L0Sampling for T
 where
     T: core::iter::Iterator<Item = (u32, bool)> + Sized,
 {
-    /// Sample a coordinate at random from a high-demensional vector
-    ///
-    /// In l0 sampling we sample each coordinate with probability 1/||f||_0, meaning uniformly from the set of all distinct coordinate
     fn l_zero_sampling(self, n: u32) -> Option<(u32, i32)> {
         // Initialization
         let mut data_structure = vec![];
@@ -139,7 +158,7 @@ mod test {
         }
 
         println!(
-            "Failed: {:?} / {n},\nIncorrect: {:?} / {n}",
+            "Failed: {:?} / {n},\nIncorrect (due to incorrectness of 1-sparse-recover): {:?} / {n}",
             fails,
             incorrect,
             n = n
