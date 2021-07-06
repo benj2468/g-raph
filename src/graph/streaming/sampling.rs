@@ -42,13 +42,24 @@ impl HashFunction {
 
         Self { a, b }
     }
+
+    #[cfg(test)]
+    fn test() -> Self {
+        let a = vec![
+            vec![0,1,0],
+            vec![1,1,1],
+        ];
+        let b = vec![1, 1];
+
+        Self {a, b}
+    }
     /// Computes the boolean value of f(x) = *0*
     fn is_zero(&self, x: u32) -> bool {
         self.a
             .iter()
             .zip(self.b.iter())
             .find_map(|(a, b)| {
-                let value = a.get(x as usize).unwrap() + b;
+                let value = (a.get(x as usize).unwrap() + b) % 2;
                 if value == 0 {
                     None
                 } else {
@@ -65,17 +76,18 @@ pub trait L0Sampling {
     ///
     /// In l-0-sampling we sample each coordinate with probability 1/||f||_0,
     /// meaning uniformly from the set of all distinct coordinates
-    fn l_zero_sampling(self, n: u32) -> Option<(u32, i32)>;
+    fn l_zero_sampling(self, n: u32, delta: f32) -> Option<(u32, i32)>;
 }
 
 impl<T> L0Sampling for T
 where
     T: core::iter::Iterator<Item = (u32, bool)> + Sized,
 {
-    fn l_zero_sampling(self, n: u32) -> Option<(u32, i32)> {
+    fn l_zero_sampling(self, n: u32, delta: f32) -> Option<(u32, i32)> {
         // Initialization
         let mut data_structure = vec![];
-        for l in 0..(n as f32).log2().round() as u32 {
+        let order = (n as f32).log2() * (1 as f32 / delta).log2();
+        for l in 0..order.round() as u32 {
             let recover = OneSparseRecovery::init(n);
             let hash_function = HashFunction::init(n, l);
 
@@ -93,7 +105,8 @@ where
 
         // Output
         for (recovery, _) in data_structure {
-            match recovery.query() {
+            let query = recovery.query();
+            match query {
                 OneSparseRecoveryOutput::VeryLikely(l, i) => return Some((i, l)),
                 _ => continue,
             }
@@ -110,11 +123,12 @@ mod test {
     use super::*;
 
     #[test]
-    fn hash_functions() {
-        let n = 5;
-        for i in 0..n {
-            let hash = HashFunction::init(n, i);
-        }
+    fn test_hash_computation() {
+        let hash = HashFunction::test();
+
+        assert!(hash.is_zero(1));
+        assert!(!hash.is_zero(0));
+        assert!(!hash.is_zero(2));
     }
 
     fn sampling() -> Option<bool> {
@@ -130,7 +144,7 @@ mod test {
             (3, false),
         ]
         .into_iter()
-        .l_zero_sampling(10);
+        .l_zero_sampling(10, 0.1);
 
         if let Some((cord, _)) = stream {
             Some([0, 6, 7].contains(&cord))
@@ -144,7 +158,7 @@ mod test {
         let mut fails = 0;
         let mut incorrect = 0;
 
-        let n = 1000;
+        let n = 100;
 
         for _ in 0..n {
             let result = sampling();

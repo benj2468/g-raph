@@ -27,7 +27,6 @@ pub struct OneSparseRecovery {
     field: FiniteField,
 }
 
-#[cfg(test)]
 impl Debug for OneSparseRecovery {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self { l, z, p, r, n, .. } = self;
@@ -197,5 +196,5 @@ mod test {
         let res = recover.query();
 
         assert_eq!(res, OneSparseRecoveryOutput::NotOneSparse)
-    }
+    }   
 }
