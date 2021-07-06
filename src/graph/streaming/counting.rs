@@ -1,10 +1,10 @@
 use rand::Rng;
 
-pub trait Coutning {
+pub trait Counting {
     fn morris(self) -> i32;
 }
 
-impl<T> Coutning for T
+impl<T> Counting for T
 where
     T: core::iter::Iterator<Item = (i32, i32)> + Sized,
 {
