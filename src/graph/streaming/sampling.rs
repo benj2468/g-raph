@@ -53,7 +53,8 @@ impl HashFunction {
 
         Self {a, b}
     }
-    /// Computes the boolean value of f(x) = *0*
+
+    /// Computes the boolean value of h(x) = *0*, where h is the current hash function
     fn is_zero(&self, x: u32) -> bool {
         self.a
             .iter()
