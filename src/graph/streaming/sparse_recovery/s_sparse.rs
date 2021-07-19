@@ -5,6 +5,7 @@ use crate::printdur;
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
 
+#[derive(Clone)]
 pub struct SparseRecovery {
     n: u32,
     t: u32,
@@ -31,7 +32,7 @@ impl SparseRecovery {
             })
             .collect();
 
-        printdur!("Structures", start);
+        // printdur!("Structures", start);
 
         let functions = (0..t)
             .into_iter()
@@ -41,7 +42,7 @@ impl SparseRecovery {
             })
             .collect();
 
-        printdur!("Functions", start);
+        // printdur!("Functions", start);
 
         Self {
             n,

@@ -20,7 +20,7 @@ use crate::graph::streaming::sparse_recovery::one_sparse::{
 /// A := {0,1}^{n,l}
 /// b :- {0,1}^l
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HashFunction {
     a: Vec<Vec<u32>>,
     b: Vec<u32>,
