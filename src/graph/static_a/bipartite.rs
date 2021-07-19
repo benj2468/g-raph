@@ -114,13 +114,13 @@ where
             if *side {
                 added_edges.insert(Edge {
                     v1: source.clone(),
-                    v2: vertex.clone().clone(),
+                    v2: vertex,
                     directed: Some(EdgeDirection::V1ToV2),
                     weight: None,
                 });
             } else {
                 added_edges.insert(Edge {
-                    v1: vertex.clone().clone(),
+                    v1: vertex,
                     v2: sink.clone(),
                     directed: Some(EdgeDirection::V1ToV2),
                     weight: None,

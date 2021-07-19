@@ -2,7 +2,6 @@
 
 > An investigation into practical and optimized implementations of graph algorithms.
 
-
 ## Development
 
 This project, as of yet, uses one simple development technology `rust`.
@@ -10,6 +9,7 @@ This project, as of yet, uses one simple development technology `rust`.
 To install rust, first ensure that you have homebrew installed. Follow instructions [here](https://brew.sh/).
 
 Once you have homebrew, install `rust`:
+
 ```
 > brew install rustup
 > rustup-init

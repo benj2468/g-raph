@@ -28,12 +28,12 @@ pub enum EdgeDirection {
     V2ToV1,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Default, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Default, Clone, Copy)]
 pub struct Edge<T, W> {
     v1: T,
     v2: T,
     directed: Option<EdgeDirection>,
-    weight: Option<W>,
+    label: Option<W>,
 }
 
 impl<T, W> Edge<T, W>
@@ -45,9 +45,45 @@ where
     }
 }
 
+impl<T, W> Edge<T, W>
+where
+    T: Eq + PartialEq + Copy,
+{
+    pub fn vertices(&self) -> (T, T) {
+        (self.v1, self.v2)
+    }
+}
+
+impl<W> Edge<u32, W> {
+    pub fn from_d1(d1: u64, n: u32) -> Self {
+        let (v1, v2) = (d1 / n as u64, d1 % n as u64);
+        Self {
+            v1: v1 as u32,
+            v2: v2 as u32,
+            directed: None,
+            label: None,
+        }
+    }
+
+    pub fn to_d1(&self, n: u32) -> u64 {
+        let (u, v) = self.vertices();
+
+        (u as u64 * n as u64) + v as u64
+    }
+
+    pub fn from_d2(v1: u32, v2: u32) -> Self {
+        Self {
+            v1,
+            v2,
+            directed: None,
+            label: None,
+        }
+    }
+}
+
 impl<T, W> Graph<T, W>
 where
-    T: Hash + Eq + Clone + std::fmt::Debug + Default,
+    T: Hash + Eq + Copy + std::fmt::Debug + Default,
     W: Hash + Eq + Clone + Default + std::fmt::Debug,
 {
     pub fn from_adj_list(
@@ -173,6 +209,26 @@ where
         }
 
         None
+    }
+
+    pub fn add_edge(&mut self, edge: Edge<T, W>) {
+        let graph = &mut self.adjacency_list;
+        let (u, v) = edge.vertices();
+
+        if !graph.contains_key(&u) {
+            graph.insert(u, HashSet::new());
+        }
+        graph.get_mut(&u).unwrap().insert(EdgeDestination {
+            destination: v,
+            label: W::default(),
+        });
+        if !graph.contains_key(&v) {
+            graph.insert(v, HashSet::new());
+        }
+        graph.get_mut(&v).unwrap().insert(EdgeDestination {
+            destination: u,
+            label: W::default(),
+        });
     }
 }
 

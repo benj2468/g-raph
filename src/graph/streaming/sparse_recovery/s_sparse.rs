@@ -1,26 +1,33 @@
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 
 use crate::graph::streaming::sampling::HashFunction;
-use crate::printdur;
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
 
+/// S-Sparse Recovery Data Structure
+///
+/// Algorithm for recovery and detection is based off of [Algorithm 15](https://www.cs.dartmouth.edu/~ac/Teach/CS35-Spring20/Notes/lecnotes.pdf)
 #[derive(Clone)]
 pub struct SparseRecovery {
-    n: u32,
-    t: u32,
-    s: u32,
+    /// Sparsity Parameter
+    s: u64,
+    /// The Sparse Recovery Data Structures
     structures: Vec<Vec<OneSparseRecovery>>,
+    /// Hash Functions for hashing to the Sparse recovery systems
     functions: Vec<HashFunction>,
 }
 
 impl SparseRecovery {
-    pub fn init(n: u32, s: u32, del: f32) -> Self {
-        let t = (s as f32 / del).log2().ceil() as u32;
+    /// Initialize a new S-Sparse Detection and Recovery Data Structure
+    ///
+    /// - *n* : Universe Size
+    /// - *s* : Sparsity we wish to detect
+    /// - *del* : Error probability controller
+    pub fn init(n: u64, s: u64, del: f32) -> Self {
+        let t = (s as f32 / del).log2().ceil() as u64;
 
         #[cfg(test)]
         println!("New Sparse Recovery: {:?} x {:?}", t, s * 2);
-        let start = Instant::now();
 
         let structures = (0..t)
             .into_iter()
@@ -32,8 +39,6 @@ impl SparseRecovery {
             })
             .collect();
 
-        // printdur!("Structures", start);
-
         let functions = (0..t)
             .into_iter()
             .map(|_| {
@@ -42,18 +47,15 @@ impl SparseRecovery {
             })
             .collect();
 
-        // printdur!("Functions", start);
-
         Self {
-            n,
-            t,
             s,
             structures,
             functions,
         }
     }
 
-    pub fn feed(&mut self, token: (u32, bool)) {
+    /// Feed a token into the Structure
+    pub fn feed(&mut self, token: (u64, bool)) {
         let (j, _) = token;
         self.structures
             .iter_mut()
@@ -66,19 +68,28 @@ impl SparseRecovery {
             });
     }
 
-    pub fn query(self) -> Option<Vec<i32>> {
-        let mut a = HashMap::new();
+    /// Query the Structure for detection and recovery
+    ///
+    /// The HashMap contains a mapping from indices which are part of the recovery to the values they contained.
+    ///
+    /// If the stream was not s-sparse, or if one of the one-sparse recovery systems got an answer wrong, then we return `None`.
+    pub fn query(self) -> Option<HashMap<u64, i32>> {
+        let mut recovery = HashMap::new();
 
         for row in self.structures {
             for cell in row {
                 match cell.query() {
                     OneSparseRecoveryOutput::VeryLikely(lambda, i) => {
                         if lambda != 0 {
-                            if a.get(&i).map(|val| val != &lambda).unwrap_or_default() {
+                            if recovery
+                                .get(&i)
+                                .map(|val| val != &lambda)
+                                .unwrap_or_default()
+                            {
                                 return None;
                             }
-                            a.insert(i, lambda);
-                            if a.keys().len() > self.s as usize {
+                            recovery.insert(i, lambda);
+                            if recovery.keys().len() > self.s as usize {
                                 return None;
                             }
                         }
@@ -87,16 +98,7 @@ impl SparseRecovery {
                 }
             }
         }
-
-        let mut f: Vec<i32> = (0..self.n).into_iter().map(|_| 0).collect();
-
-        a.into_iter().for_each(|(cord, val)| {
-            if let Some(current) = f.get_mut(cord as usize) {
-                *current = *current + val;
-            };
-        });
-
-        Some(f)
+        Some(recovery)
     }
 }
 
@@ -106,7 +108,7 @@ mod test {
 
     #[test]
     fn simple_test() {
-        let stream: Vec<(u32, bool)> = vec![
+        let stream: Vec<(u64, bool)> = vec![
             (0, true),
             (9, true),
             (7, true),
@@ -122,8 +124,11 @@ mod test {
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 
-        let expected = Some(vec![1, 0, 0, 0, 0, 0, 1, 3, 0, 0]);
+        let mut expected: HashMap<u64, i32> = HashMap::new();
+        expected.insert(0, 1);
+        expected.insert(6, 1);
+        expected.insert(7, 3);
 
-        assert_eq!(recovery.query(), expected)
+        assert_eq!(recovery.query(), Some(expected))
     }
 }

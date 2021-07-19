@@ -28,7 +28,7 @@ pub struct HashFunction {
 
 impl HashFunction {
     /// Initialize a new hash function. Practically this is simply creating an A and a b value, randomly
-    pub fn init(n: u32, l: u32) -> Self {
+    pub fn init(n: u64, l: u64) -> Self {
         let (mut a, mut b) = (vec![], vec![]);
         let gen = Uniform::new_inclusive(0, 1);
         let mut rng = rand::thread_rng();
@@ -54,7 +54,7 @@ impl HashFunction {
     }
 
     /// Computes the value of h(x), where h is the current hash function
-    pub fn compute(&self, x: u32) -> Vec<u32> {
+    pub fn compute(&self, x: u64) -> Vec<u32> {
         self.a
             .iter()
             .zip(self.b.iter())
@@ -63,7 +63,7 @@ impl HashFunction {
     }
 
     /// Computes the boolean value of h(x) = *0*, where h is the current hash function
-    pub fn is_zero(&self, x: u32) -> bool {
+    pub fn is_zero(&self, x: u64) -> bool {
         self.a
             .iter()
             .zip(self.b.iter())
@@ -85,18 +85,18 @@ pub trait L0Sampling {
     ///
     /// In l-0-sampling we sample each coordinate with probability 1/||f||_0,
     /// meaning uniformly from the set of all distinct coordinates
-    fn l_zero_sampling(self, n: u32, delta: f32) -> Option<(u32, i32)>;
+    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i32)>;
 }
 
 impl<T> L0Sampling for T
 where
-    T: core::iter::Iterator<Item = (u32, bool)> + Sized,
+    T: core::iter::Iterator<Item = (u64, bool)> + Sized,
 {
-    fn l_zero_sampling(self, n: u32, delta: f32) -> Option<(u32, i32)> {
+    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i32)> {
         // Initialization
         let mut data_structure = vec![];
         let order = (n as f32).log2() * (1 as f32 / delta).log2();
-        for l in 0..order.round() as u32 {
+        for l in 0..order.round() as u64 {
             let recover = OneSparseRecovery::init(n);
             let hash_function = HashFunction::init(n, l);
 
@@ -144,14 +144,14 @@ mod test {
 
     fn random_sampling() -> Option<bool> {
         let mut rng = rand::thread_rng();
-        let n = 100;
+        let n: u64 = 100;
 
-        let survivors: Vec<(u32, bool)> = (0..50)
+        let survivors: Vec<(u64, bool)> = (0..50)
             .into_iter()
             .map(|_| (rng.gen_range(0..n), true))
             .collect();
 
-        let mut noise: Vec<(u32, bool)> = (0..50)
+        let mut noise: Vec<(u64, bool)> = (0..50)
             .into_iter()
             .flat_map(|_| {
                 let v = rng.gen_range(0..n);

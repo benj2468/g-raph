@@ -22,7 +22,7 @@ pub struct OneSparseRecovery {
 
     /// Init values
     r: FieldElement,
-    n: u32,
+    n: u64,
     field: FiniteField,
 }
 
@@ -45,13 +45,13 @@ impl Debug for OneSparseRecovery {
 pub enum OneSparseRecoveryOutput {
     Zero,
     /// First element is the value, second element is the index
-    VeryLikely(i32, u32),
+    VeryLikely(i32, u64),
     NotOneSparse,
 }
 
 impl OneSparseRecovery {
     /// Initialize a new `OneSparseRecovery` DS, where the size of our universe is given as `n`.
-    pub fn init(n: u32) -> Self {
+    pub fn init(n: u64) -> Self {
         let mut rng = rand::thread_rng();
         let order = Sieve::new().find(n.pow(2) as u64).1;
 
@@ -75,7 +75,7 @@ impl OneSparseRecovery {
     /// Expectations:
     /// 1. `j \in [n]`
     /// 2. `c \in {-1, 1} - false -> -1; true -> 1`
-    pub fn feed(&mut self, token: (u32, bool)) {
+    pub fn feed(&mut self, token: (u64, bool)) {
         let (coordinate, value) = token;
         let value_int = if value { 1 } else { -1 };
         self.l += value_int;
@@ -104,10 +104,10 @@ impl OneSparseRecovery {
             let divided = (z as f32) / (l as f32);
             if divided.round() != divided {
                 OneSparseRecoveryOutput::NotOneSparse
-            } else if p != field.mul(field.mod_p_i32(l), field.pow(r, divided.round() as u32)) {
+            } else if p != field.mul(field.mod_p_i32(l), field.pow(r, divided.round() as u64)) {
                 OneSparseRecoveryOutput::NotOneSparse
             } else {
-                OneSparseRecoveryOutput::VeryLikely(l, divided.round() as u32)
+                OneSparseRecoveryOutput::VeryLikely(l, divided.round() as u64)
             }
         }
     }
@@ -119,7 +119,7 @@ mod test {
 
     #[test]
     fn true_positive() {
-        let stream: Vec<(u32, bool)> = vec![
+        let stream: Vec<(u64, bool)> = vec![
             (0, true),
             (9, true),
             (7, true),
@@ -146,7 +146,7 @@ mod test {
 
     #[test]
     fn true_zero() {
-        let stream: Vec<(u32, bool)> = vec![
+        let stream: Vec<(u64, bool)> = vec![
             (0, true),
             (9, true),
             (7, true),
@@ -174,7 +174,7 @@ mod test {
 
     #[test]
     fn true_negative() {
-        let stream: Vec<(u32, bool)> = vec![
+        let stream: Vec<(u64, bool)> = vec![
             (0, true),
             (9, true),
             (7, true),

@@ -60,7 +60,7 @@ impl FiniteField {
     }
 
     /// Compute base^expo within the field
-    pub fn pow(&self, base: FieldElement, expo: u32) -> FieldElement {
+    pub fn pow(&self, base: FieldElement, expo: u64) -> FieldElement {
         if expo == 0 {
             return 1.into();
         }
