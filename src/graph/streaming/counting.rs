@@ -13,13 +13,13 @@ where
         let mut rng = rand::thread_rng();
 
         self.for_each(|_| {
-            let prob = (2 as i32).pow(x);
+            let prob = 2_i32.pow(x);
 
             if rng.gen_range(0..prob) == 0 {
                 x += 1
             }
         });
 
-        (2 as i32).pow(x) - 1
+        2_i32.pow(x) - 1
     }
 }

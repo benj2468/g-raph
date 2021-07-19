@@ -1,15 +1,10 @@
-use super::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-
-pub struct DistinctElements<T> {
-    foo: T,
-}
 
 fn zeros(p: u64) -> u64 {
     let (mut max, mut curr) = (0, 0);
     while curr <= p / 2 {
-        if p % (2 as u64).pow(curr as u32) == 0 {
+        if p % 2_u64.pow(curr as u32) == 0 {
             max = curr
         }
         curr += 1;
@@ -43,6 +38,6 @@ where
             }
         });
 
-        (2 as i32).pow(z as u32) as f32 * (2 as f32).sqrt()
+        2_i32.pow(z as u32) as f32 * 2_f32.sqrt()
     }
 }

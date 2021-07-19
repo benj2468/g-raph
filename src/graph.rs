@@ -1,18 +1,16 @@
+//! Contains all things related to graphs
+
 use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet},
-    f32::INFINITY,
     hash::Hash,
 };
 
 use priority_queue::PriorityQueue;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub struct EdgeDestination<T, W> {
-    pub destination: T,
-    label: W,
-}
+pub mod edge;
 
+use edge::*;
 #[derive(Debug, Clone)]
 pub struct Graph<T, W>
 where
@@ -22,86 +20,20 @@ where
     vertex_heap: Option<PriorityQueue<T, Reverse<usize>>>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum EdgeDirection {
-    V1ToV2,
-    V2ToV1,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Default, Clone, Copy)]
-pub struct Edge<T, W> {
-    v1: T,
-    v2: T,
-    directed: Option<EdgeDirection>,
-    label: Option<W>,
-}
-
-impl<T, W> Edge<T, W>
-where
-    T: Eq + PartialEq,
-{
-    pub fn on_vertex(&self, vertex: &T) -> bool {
-        self.v1 == *vertex || self.v2 == *vertex
-    }
-}
-
-impl<T, W> Edge<T, W>
-where
-    T: Eq + PartialEq + Copy,
-{
-    pub fn vertices(&self) -> (T, T) {
-        (self.v1, self.v2)
-    }
-}
-
-impl<W> Edge<u32, W> {
-    pub fn from_d1(d1: u64, n: u32) -> Self {
-        let (v1, v2) = (d1 / n as u64, d1 % n as u64);
-        Self {
-            v1: v1 as u32,
-            v2: v2 as u32,
-            directed: None,
-            label: None,
-        }
-    }
-
-    pub fn to_d1(&self, n: u32) -> u64 {
-        let (u, v) = self.vertices();
-
-        (u as u64 * n as u64) + v as u64
-    }
-
-    pub fn from_d2(v1: u32, v2: u32) -> Self {
-        Self {
-            v1,
-            v2,
-            directed: None,
-            label: None,
-        }
-    }
-}
-
 impl<T, W> Graph<T, W>
 where
-    T: Hash + Eq + Copy + std::fmt::Debug + Default,
+    T: Hash + Eq + Clone + std::fmt::Debug + Default,
     W: Hash + Eq + Clone + Default + std::fmt::Debug,
 {
-    pub fn from_adj_list(
-        matrix: HashMap<T, HashSet<(T, W)>>,
-        directed: Option<EdgeDirection>,
-    ) -> Self {
+    pub fn from_adj_list(matrix: HashMap<T, HashSet<(T, Option<W>)>>) -> Self {
         let adjacency_list = matrix
-            .clone()
             .into_iter()
             .map(|(v, edges)| {
                 (
                     v,
                     edges
                         .into_iter()
-                        .map(|(dest, label)| EdgeDestination {
-                            destination: dest,
-                            label,
-                        })
+                        .map(|(dest, label)| EdgeDestination::init(dest, label))
                         .collect(),
                 )
             })
@@ -120,7 +52,7 @@ where
             queue.push(v.clone(), Reverse(edges.len()));
         });
 
-        let mut new = self.clone();
+        let mut new = self;
 
         new.vertex_heap.replace(queue);
 
@@ -136,7 +68,7 @@ where
 
         self.adjacency_list
             .iter_mut()
-            .for_each(|(vertex, edges)| edges.retain(|edge| edge.destination == *vertex));
+            .for_each(|(vertex, edges)| edges.retain(|edge| edge.destination() == vertex));
     }
 
     /// This is an O(n), if we were to back the graph with a priority queue we could speed this up, but for now who cares
@@ -193,7 +125,7 @@ where
                 let neighbors = adjacency_list.get(&vertex);
                 if let Some(neighbors) = neighbors {
                     neighbors.iter().for_each(|neighbor| {
-                        let destination = &neighbor.destination;
+                        let destination = neighbor.destination();
                         let current = heap.get_priority(destination).unwrap().0;
                         heap.change_priority(destination, Reverse(current - 1));
                     })
@@ -202,10 +134,8 @@ where
 
                 return Some(vertex);
             };
-        } else {
-            if let Some((vertex, _)) = self.min_degree() {
-                self.remove_vertex(&vertex);
-            }
+        } else if let Some((vertex, _)) = self.min_degree() {
+            self.remove_vertex(&vertex);
         }
 
         None
@@ -216,21 +146,19 @@ where
         let (u, v) = edge.vertices();
 
         if !graph.contains_key(&u) {
-            graph.insert(u, HashSet::new());
+            graph.insert(u.clone(), HashSet::new());
         }
-        graph.get_mut(&u).unwrap().insert(EdgeDestination {
-            destination: v,
-            label: W::default(),
-        });
-        if !graph.contains_key(&v) {
-            graph.insert(v, HashSet::new());
+        graph.get_mut(&u).unwrap().insert((&edge).into());
+
+        if !edge.is_directed() {
+            if !graph.contains_key(&v) {
+                graph.insert(v.clone(), HashSet::new());
+            }
+            graph.get_mut(&v).unwrap().insert((&!edge).into());
         }
-        graph.get_mut(&v).unwrap().insert(EdgeDestination {
-            destination: u,
-            label: W::default(),
-        });
     }
 }
 
+#[doc(hidden)]
 pub mod static_a;
 pub mod streaming;

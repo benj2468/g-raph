@@ -48,7 +48,7 @@ impl FiniteField {
     /// Converts an i32 into a field element of the current field
     pub fn mod_p_i32(&self, val: i32) -> FieldElement {
         if val >= 0 {
-            self.mod_p(val as u64).into()
+            self.mod_p(val as u64)
         } else {
             (self.order - val.abs() as u64).into()
         }

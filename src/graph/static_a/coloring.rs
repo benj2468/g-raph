@@ -1,20 +1,16 @@
+//! Relating to all things coloring
+
 use super::super::*;
 use std::collections::HashSet;
 
-#[derive(Debug)]
-pub struct Coloring<T>(HashMap<T, usize>);
-
-impl<T> AsRef<HashMap<T, usize>> for Coloring<T> {
-    fn as_ref(&self) -> &HashMap<T, usize> {
-        &self.0
-    }
-}
+type Coloring<T> = HashMap<T, usize>;
 
 impl<T, W> Graph<T, W>
 where
     T: Hash + Eq + Copy + std::fmt::Debug + Default,
     W: Hash + Eq + Clone + Default + std::fmt::Debug,
 {
+    /// Colors a graph using a specific technique outlined in [Lemma 2.6](https://arxiv.org/pdf/1905.00566.pdf#page=7)
     pub fn color_degeneracy(self) -> Coloring<T> {
         let mut ordering = vec![];
 
@@ -36,7 +32,7 @@ where
                 .get(&v)
                 .unwrap()
                 .iter()
-                .map(|e| &e.destination)
+                .map(|e| e.destination())
                 .filter_map(|v| coloring.get(v))
                 .collect();
 
@@ -47,6 +43,6 @@ where
             coloring.insert(v, color);
         });
 
-        Coloring(coloring)
+        coloring
     }
 }

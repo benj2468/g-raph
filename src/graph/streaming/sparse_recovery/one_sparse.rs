@@ -5,7 +5,7 @@
 /// Current includes:
 ///
 /// 1. One Sparse Recovery: A One Sparse Recover Data Structure to recover from a stream of fead tokens
-use std::{fmt::Debug, time::Instant};
+use std::fmt::Debug;
 
 use primes::{PrimeSet, Sieve};
 use rand::Rng;
@@ -51,6 +51,7 @@ pub enum OneSparseRecoveryOutput {
 
 impl OneSparseRecovery {
     /// Initialize a new `OneSparseRecovery` DS, where the size of our universe is given as `n`.
+    #[allow(clippy::many_single_char_names)]
     pub fn init(n: u64) -> Self {
         let mut rng = rand::thread_rng();
         let order = Sieve::new().find(n.pow(2) as u64).1;
@@ -102,9 +103,9 @@ impl OneSparseRecovery {
             OneSparseRecoveryOutput::Zero
         } else {
             let divided = (z as f32) / (l as f32);
-            if divided.round() != divided {
-                OneSparseRecoveryOutput::NotOneSparse
-            } else if p != field.mul(field.mod_p_i32(l), field.pow(r, divided.round() as u64)) {
+            if (divided.round() - divided).abs() > f32::EPSILON
+                || p != field.mul(field.mod_p_i32(l), field.pow(r, divided.round() as u64))
+            {
                 OneSparseRecoveryOutput::NotOneSparse
             } else {
                 OneSparseRecoveryOutput::VeryLikely(l, divided.round() as u64)

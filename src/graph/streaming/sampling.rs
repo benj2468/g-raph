@@ -95,7 +95,7 @@ where
     fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i32)> {
         // Initialization
         let mut data_structure = vec![];
-        let order = (n as f32).log2() * (1 as f32 / delta).log2();
+        let order = (n as f32).log2() * (1_f32 / delta).log2();
         for l in 0..order.round() as u64 {
             let recover = OneSparseRecovery::init(n);
             let hash_function = HashFunction::init(n, l);
