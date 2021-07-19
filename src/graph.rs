@@ -1,13 +1,25 @@
 use std::{
+    cmp::Reverse,
     collections::{HashMap, HashSet},
+    f32::INFINITY,
     hash::Hash,
 };
 
-#[derive(Debug)]
-pub struct Graph<T, W> {
-    vertices: HashSet<T>,
-    edges: HashSet<Edge<T, W>>,
-    adjacency_list: HashMap<T, HashSet<T>>,
+use priority_queue::PriorityQueue;
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct EdgeDestination<T, W> {
+    pub destination: T,
+    label: W,
+}
+
+#[derive(Debug, Clone)]
+pub struct Graph<T, W>
+where
+    T: Hash + Eq,
+{
+    adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>,
+    vertex_heap: Option<PriorityQueue<T, Reverse<usize>>>,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -36,61 +48,131 @@ where
 impl<T, W> Graph<T, W>
 where
     T: Hash + Eq + Clone + std::fmt::Debug + Default,
-    W: Hash + Eq + Clone + Default,
+    W: Hash + Eq + Clone + Default + std::fmt::Debug,
 {
-    pub fn from_adj_list(matrix: HashMap<T, Vec<T>>, directed: Option<EdgeDirection>) -> Self {
-        let mut edges = HashSet::new();
-
-        let adjacency_list: HashMap<T, HashSet<T>> = matrix
+    pub fn from_adj_list(
+        matrix: HashMap<T, HashSet<(T, W)>>,
+        directed: Option<EdgeDirection>,
+    ) -> Self {
+        let adjacency_list = matrix
             .clone()
             .into_iter()
-            .map(|(v, edges)| (v, edges.into_iter().collect()))
-            .collect();
-
-        let vertices = adjacency_list.keys().cloned().collect();
-
-        adjacency_list.iter().for_each(|(v1, value)| {
-            value.iter().for_each(|v2| {
-                edges.insert(Edge {
-                    v1: v1.clone(),
-                    v2: v2.clone(),
-                    directed,
-                    ..Default::default()
-                });
+            .map(|(v, edges)| {
+                (
+                    v,
+                    edges
+                        .into_iter()
+                        .map(|(dest, label)| EdgeDestination {
+                            destination: dest,
+                            label,
+                        })
+                        .collect(),
+                )
             })
-        });
+            .collect();
 
         Self {
-            vertices,
-            edges,
             adjacency_list,
+            vertex_heap: None,
         }
     }
 
-    pub fn get_neighbors(&self, vertex: &T) -> Option<&HashSet<T>> {
+    pub fn with_vertex_recaller(self) -> Self {
+        let mut queue = PriorityQueue::new();
+
+        self.adjacency_list.iter().for_each(|(v, edges)| {
+            queue.push(v.clone(), Reverse(edges.len()));
+        });
+
+        let mut new = self.clone();
+
+        new.vertex_heap.replace(queue);
+
+        new
+    }
+
+    pub fn get_neighbors(&self, vertex: &T) -> Option<&HashSet<EdgeDestination<T, W>>> {
         self.adjacency_list.get(vertex)
     }
-}
 
-pub trait ClearVertex<T, W> {
-    fn remove_edges(&mut self, vertex: &T);
-}
+    pub fn remove_vertex(&mut self, vertex: &T) {
+        self.adjacency_list.remove(vertex);
 
-impl<T, W> ClearVertex<T, W> for HashSet<Edge<T, W>>
-where
-    T: PartialEq + Eq + Hash + Clone,
-    W: Eq + Hash + Clone,
-{
-    fn remove_edges(&mut self, vertex: &T) {
-        let removing_edges: Vec<_> = self
-            .clone()
-            .into_iter()
-            .filter(|edge| !edge.on_vertex(vertex))
-            .collect();
+        self.adjacency_list
+            .iter_mut()
+            .for_each(|(vertex, edges)| edges.retain(|edge| edge.destination == *vertex));
+    }
 
-        for edge in removing_edges {
-            self.remove(&edge);
+    /// This is an O(n), if we were to back the graph with a priority queue we could speed this up, but for now who cares
+    /// Returns None if the graph has no vertices
+    pub fn min_degree(&self) -> Option<(T, usize)> {
+        let (mut vertex, mut min) = (
+            self.adjacency_list.keys().next().cloned(),
+            self.adjacency_list.values().next().map(|e| e.len()),
+        );
+
+        self.adjacency_list.iter().for_each(|(ver, edges)| {
+            let len = edges.len();
+            if let Some(min_value) = min {
+                if len < min_value {
+                    vertex.replace(ver.clone());
+                    min.replace(len);
+                };
+            }
+        });
+        vertex.and_then(|v| min.map(|m| (v, m)))
+    }
+
+    pub fn max_degree(&self) -> Option<(&T, usize)> {
+        let (mut vertex, mut min) = (
+            self.adjacency_list.keys().next(),
+            self.adjacency_list.values().next().map(|e| e.len()),
+        );
+
+        self.adjacency_list.iter().for_each(|(ver, edges)| {
+            let len = edges.len();
+            if let Some(min_value) = min {
+                if len > min_value {
+                    vertex.replace(ver);
+                    min.replace(len);
+                };
+            }
+        });
+        vertex.and_then(|v| min.map(|m| (v, m)))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.adjacency_list.is_empty()
+    }
+
+    pub fn remove_min(&mut self) -> Option<T> {
+        let Self {
+            adjacency_list,
+            vertex_heap,
+        } = self;
+        if let Some(heap) = vertex_heap {
+            let min = heap.pop();
+
+            if let Some((vertex, _)) = min {
+                let neighbors = adjacency_list.get(&vertex);
+                if let Some(neighbors) = neighbors {
+                    neighbors.iter().for_each(|neighbor| {
+                        let destination = &neighbor.destination;
+                        let current = heap.get_priority(destination).unwrap().0;
+                        heap.change_priority(destination, Reverse(current - 1));
+                    })
+                }
+                self.remove_vertex(&vertex);
+
+                return Some(vertex);
+            };
+        } else {
+            if let Some((vertex, _)) = self.min_degree() {
+                self.remove_vertex(&vertex);
+            }
         }
+
+        None
     }
 }
 

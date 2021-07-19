@@ -7,7 +7,9 @@
 /// 1. l-0 Sampling, an implementation over an iterator to consume it and sample a single element.
 use rand::distributions::{Distribution, Uniform};
 
-use crate::graph::streaming::sparse_recovery::{OneSparseRecovery, OneSparseRecoveryOutput};
+use crate::graph::streaming::sparse_recovery::one_sparse::{
+    OneSparseRecovery, OneSparseRecoveryOutput,
+};
 
 /// Data Structure for storing a hash function
 ///
@@ -26,7 +28,7 @@ pub struct HashFunction {
 
 impl HashFunction {
     /// Initialize a new hash function. Practically this is simply creating an A and a b value, randomly
-    fn init(n: u32, l: u32) -> Self {
+    pub fn init(n: u32, l: u32) -> Self {
         let (mut a, mut b) = (vec![], vec![]);
         let gen = Uniform::new_inclusive(0, 1);
         let mut rng = rand::thread_rng();
@@ -45,17 +47,23 @@ impl HashFunction {
 
     #[cfg(test)]
     fn test() -> Self {
-        let a = vec![
-            vec![0,1,0],
-            vec![1,1,1],
-        ];
+        let a = vec![vec![0, 1, 0], vec![1, 1, 1]];
         let b = vec![1, 1];
 
-        Self {a, b}
+        Self { a, b }
+    }
+
+    /// Computes the value of h(x), where h is the current hash function
+    pub fn compute(&self, x: u32) -> Vec<u32> {
+        self.a
+            .iter()
+            .zip(self.b.iter())
+            .map(|(a, b)| (a.get(x as usize).unwrap() + b) % 2)
+            .collect()
     }
 
     /// Computes the boolean value of h(x) = *0*, where h is the current hash function
-    fn is_zero(&self, x: u32) -> bool {
+    pub fn is_zero(&self, x: u32) -> bool {
         self.a
             .iter()
             .zip(self.b.iter())
@@ -120,6 +128,8 @@ where
 #[cfg(test)]
 mod test {
     // Need testing, not sure what testing looks like thought
+    use rand::seq::SliceRandom;
+    use rand::Rng;
 
     use super::*;
 
@@ -132,23 +142,31 @@ mod test {
         assert!(!hash.is_zero(2));
     }
 
-    fn sampling() -> Option<bool> {
-        let stream = vec![
-            (0, true),
-            (6, true),
-            (7, true),
-            (6, true),
-            (7, true),
-            (6, false),
-            (3, true),
-            (0, true),
-            (3, false),
-        ]
-        .into_iter()
-        .l_zero_sampling(10, 0.1);
+    fn random_sampling() -> Option<bool> {
+        let mut rng = rand::thread_rng();
+        let n = 100;
 
-        if let Some((cord, _)) = stream {
-            Some([0, 6, 7].contains(&cord))
+        let survivors: Vec<(u32, bool)> = (0..50)
+            .into_iter()
+            .map(|_| (rng.gen_range(0..n), true))
+            .collect();
+
+        let mut noise: Vec<(u32, bool)> = (0..50)
+            .into_iter()
+            .flat_map(|_| {
+                let v = rng.gen_range(0..n);
+                vec![(v, true), (v, false)]
+            })
+            .collect();
+
+        let mut stream = survivors.clone();
+        stream.append(&mut noise);
+        stream.shuffle(&mut rng);
+
+        let sample = stream.into_iter().l_zero_sampling(n, 0.1);
+
+        if let Some((cord, _)) = sample {
+            Some(survivors.into_iter().any(|(e, _)| e == cord))
         } else {
             None
         }
@@ -162,7 +180,7 @@ mod test {
         let n = 100;
 
         for _ in 0..n {
-            let result = sampling();
+            let result = random_sampling();
             if let Some(b) = result {
                 if !b {
                     incorrect += 1;

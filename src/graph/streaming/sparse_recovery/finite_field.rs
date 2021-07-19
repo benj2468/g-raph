@@ -8,8 +8,8 @@ pub struct FiniteField {
 
 /// An element of some field.
 ///
-/// Given some FieldElement, we do not know in fact, what field it is from. This computation would happen at runtime, so typing it is not an option. 
-/// What we can do, is semantically enforce that values passed into the FiniteField functions are FieldElements, rather than simply u64s. 
+/// Given some FieldElement, we do not know in fact, what field it is from. This computation would happen at runtime, so typing it is not an option.
+/// What we can do, is semantically enforce that values passed into the FiniteField functions are FieldElements, rather than simply u64s.
 ///
 /// Since we are using only one field at a time, this should suffice.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -58,7 +58,7 @@ impl FiniteField {
     pub fn mod_p(&self, val: u64) -> FieldElement {
         val.rem_euclid(self.order).into()
     }
-    
+
     /// Compute base^expo within the field
     pub fn pow(&self, base: FieldElement, expo: u32) -> FieldElement {
         if expo == 0 {
@@ -90,7 +90,6 @@ impl FiniteField {
         (self.order - u64::from(v1)).into()
     }
 }
-
 
 #[cfg(test)]
 mod test {
