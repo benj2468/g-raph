@@ -8,6 +8,10 @@ edition = "2018"
 
 [dependencies]
 itertools = "0.10.1"
+num-primes = { path = "./num-primes" }
 primes = "0.3.0"
 priority-queue = "1.1.1"
 rand = "0.8.4"
+
+[workspace]
+members = ["num-primes",]

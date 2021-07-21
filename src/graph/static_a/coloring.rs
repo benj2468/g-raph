@@ -7,7 +7,7 @@ type Coloring<T> = HashMap<T, usize>;
 
 impl<T, W> Graph<T, W>
 where
-    T: Hash + Eq + Copy + std::fmt::Debug + Default,
+    T: Hash + Eq + Copy + std::fmt::Debug + Default + PartialOrd,
     W: Hash + Eq + Clone + Default + std::fmt::Debug,
 {
     /// Colors a graph using a specific technique outlined in [Lemma 2.6](https://arxiv.org/pdf/1905.00566.pdf#page=7)

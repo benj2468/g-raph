@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-
-use crate::graph::streaming::sampling::HashFunction;
-
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
+use crate::{graph::streaming::sampling::HashFunction, printdur};
+use num_primes::Generator;
+use std::{collections::HashMap, time::Instant};
 
 /// S-Sparse Recovery Data Structure
 ///
@@ -26,15 +25,29 @@ impl SparseRecovery {
     pub fn init(n: u64, s: u64, del: f32) -> Self {
         let t = (s as f32 / del).log2().ceil() as u64;
 
-        #[cfg(test)]
-        println!("New Sparse Recovery: {:?} x {:?}", t, s * 2);
+        let start = Instant::now();
+
+        let order = {
+            let prime_bits = (3 as f64 * (n as f64).log2()).ceil() as u64 + 1;
+            let prime = Generator::new_prime(prime_bits);
+            prime
+                .to_u32_digits()
+                .into_iter()
+                .enumerate()
+                .fold(0, |val, (i, next)| {
+                    let digit_value = 32u64.pow(i as u32) * next as u64;
+                    val + digit_value
+                })
+        };
+
+        println!("Initializing Sparse REcovery {:?} - {} x {}", n, t, 2 * s);
 
         let structures = (0..t)
             .into_iter()
             .map(|_| {
                 (0..(2 * s))
                     .into_iter()
-                    .map(|_| OneSparseRecovery::init(n))
+                    .map(|_| OneSparseRecovery::init_with_order(n, order))
                     .collect()
             })
             .collect();
@@ -46,6 +59,8 @@ impl SparseRecovery {
                 HashFunction::init(n, 2 * s)
             })
             .collect();
+
+        printdur!("Setup", start);
 
         Self {
             s,

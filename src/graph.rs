@@ -22,7 +22,7 @@ where
 
 impl<T, W> Graph<T, W>
 where
-    T: Hash + Eq + Clone + std::fmt::Debug + Default,
+    T: Hash + Eq + Clone + std::fmt::Debug + Default + PartialOrd,
     W: Hash + Eq + Clone + Default + std::fmt::Debug,
 {
     pub fn from_adj_list(matrix: HashMap<T, HashSet<(T, Option<W>)>>) -> Self {

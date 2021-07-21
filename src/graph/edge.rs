@@ -29,7 +29,7 @@ impl<T, W> Not for Edge<T, W> {
 
 impl<T, W> Edge<T, W>
 where
-    T: Eq + PartialEq,
+    T: Eq + PartialEq + PartialOrd,
 {
     /// Creates an edge given two vertices
     pub fn init(v1: T, v2: T) -> Self {
@@ -67,27 +67,73 @@ where
 
     /// Returns the vertices incident to an edge, (source, dest) if directed
     pub fn vertices(&self) -> (&T, &T) {
-        (&self.v1, &self.v2)
+        if self.v1 <= self.v2 {
+            (&self.v1, &self.v2)
+        } else {
+            (&self.v2, &self.v1)
+        }
     }
 }
 
 impl<W> Edge<u32, W> {
     /// Creates an edge from a 1-dimensional space value, assuming a total possible number of edges being n^2
-    pub fn from_d1(d1: u64, n: u32) -> Self {
-        let (v1, v2) = (d1 / n as u64, d1 % n as u64);
+    pub fn from_d1(d1: u64) -> Self {
+        let (mut min, mut max): (u32, u32) = (0, 0);
+        loop {
+            if Self::formula(&min, &max) == d1 {
+                break;
+            }
+            if min == max {
+                max += 1;
+                min = 0;
+            } else {
+                min += 1;
+            }
+        }
+
         Self {
-            v1: v1 as u32,
-            v2: v2 as u32,
+            v1: min as u32,
+            v2: max as u32,
             directed: false,
             label: None,
         }
     }
 
     /// Converts an edge in `N^2` space to `N` space, provided a number of vertices in the graph
-    pub fn to_d1(&self, n: u32) -> u64 {
-        let (u, v) = self.vertices();
+    pub fn to_d1(&self) -> u64 {
+        let (min, max) = self.vertices();
 
-        (*u as u64 * n as u64) + *v as u64
+        Self::formula(min, max)
+    }
+
+    fn formula(min: &u32, max: &u32) -> u64 {
+        if *max == 0 {
+            return 0;
+        }
+        *max as u64 * ((*max as u64) - 1) / 2 + *min as u64
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn from_d1() {
+        let edge = Edge::<u32, ()> {
+            v1: 4,
+            v2: 5,
+            directed: false,
+            label: None,
+        };
+
+        let d1 = edge.to_d1();
+
+        assert_eq!(d1, 14);
+
+        let edge = Edge::<u32, ()>::from_d1(14);
+
+        assert_eq!(edge.vertices(), (&4, &5));
     }
 }
 

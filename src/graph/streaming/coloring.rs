@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 
 use rand::Rng;
 
@@ -23,6 +26,27 @@ pub struct StreamColoring {
 
 pub const C: f32 = 0.4;
 
+fn factorial(n: u64) -> u128 {
+    (1..(n as u128 + 1))
+        .into_iter()
+        .fold(1, |val, next| return val * next)
+}
+
+fn combination(n: u64, k: u64) -> u64 {
+    let numerator: HashSet<u64> = ((k + 1)..(n + 1)).collect();
+    let denominator: HashSet<u64> = (1..(n - k + 1)).collect();
+
+    let num = numerator
+        .difference(&denominator)
+        .fold(1, |val, next| val * next);
+
+    let den = denominator
+        .difference(&numerator)
+        .fold(1, |val, next| val * next);
+
+    num / den
+}
+
 impl StreamColoring {
     /// Initialize a new StreamColoring Instance
     ///
@@ -40,7 +64,7 @@ impl StreamColoring {
             colors.push((0, r))
         }
 
-        let sparse_recovery = SparseRecovery::init(n as u64 * n as u64, s, 0.5);
+        let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s, 0.5);
 
         Self {
             n,
@@ -54,7 +78,7 @@ impl StreamColoring {
     ///
     /// - *edge* : An edge between two vertices indicated by integers within *n*
     /// - *c* : True if edge is insertion, false if deletion
-    pub fn feed<W>(&mut self, edge: Edge<u32, W>, c: bool) {
+    pub fn feed<W: Debug>(&mut self, edge: Edge<u32, W>, c: bool) {
         let Self {
             n,
             colors,
@@ -64,7 +88,7 @@ impl StreamColoring {
 
         let (color1, color2) = Self::get_edge_colors(&colors, &edge).unwrap();
 
-        let edge_number = edge.to_d1(*n);
+        let edge_number = edge.to_d1();
 
         if color1 == color2 {
             sparse_recovery.feed((edge_number, c));
@@ -89,7 +113,7 @@ impl StreamColoring {
                     Graph::from_adj_list(HashMap::<u32, HashSet<(u32, Option<()>)>>::new());
 
                 sparse_recovery_output.iter().for_each(|(edge, _)| {
-                    let edge = Edge::from_d1(*edge, n);
+                    let edge = Edge::from_d1(*edge);
                     let (color1, color2) = Self::get_edge_colors(&colors, &edge).unwrap();
 
                     if color1 == color2 && *color2 == (0, color as u32) {
@@ -137,6 +161,16 @@ mod test {
 
     use super::*;
 
+    #[test]
+    fn fact() {
+        assert_eq!(factorial(5), 120);
+    }
+
+    #[test]
+    fn comb() {
+        assert_eq!(combination(100, 2), 4950);
+    }
+
     fn test_stream() -> Vec<(Edge<u32, ()>, bool)> {
         vec![
             ((1, 3), true),
@@ -166,7 +200,7 @@ mod test {
     fn test_geometric_partition() {
         let stream = test_stream();
 
-        let n: f32 = 10.0;
+        let n: f32 = 100.0;
         let s = ((C * n) as f64 * (n as f64).log2()).round() as u64;
 
         let mut min_color = INFINITY as usize;
