@@ -5,14 +5,12 @@
 /// Current includes:
 ///
 /// 1. One Sparse Recovery: A One Sparse Recover Data Structure to recover from a stream of fead tokens
-use std::{fmt::Debug, time::Instant, u128};
+use std::fmt::Debug;
 
 use num_primes::Generator;
 use rand::Rng;
 
-use crate::printdur;
-
-use super::finite_field::*;
+use crate::utils::finite_field::{FieldElement, FiniteField};
 
 /// One Sparse Recovery Data Structure. This includes both the Fingerprint values, and the initializing values, including a finite field to person arithmetic within
 #[derive(Clone)]
@@ -56,7 +54,7 @@ impl OneSparseRecovery {
     #[allow(clippy::many_single_char_names)]
     pub fn init(n: u64) -> Self {
         let mut rng = rand::thread_rng();
-        let prime_bits = (3 as f64 * (n as f64).log2()).ceil() as u64 + 1;
+        let prime_bits = (3_f64 * (n as f64).log2()).ceil() as u64 + 1;
         let prime = Generator::new_prime(prime_bits);
         let order = prime
             .to_u32_digits()
@@ -81,6 +79,7 @@ impl OneSparseRecovery {
         }
     }
 
+    #[allow(clippy::many_single_char_names)]
     pub fn init_with_order(n: u64, order: u64) -> Self {
         let mut rng = rand::thread_rng();
 

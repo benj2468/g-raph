@@ -1,22 +1,25 @@
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
-use crate::{graph::streaming::sampling::HashFunction, printdur};
+use crate::{printdur, start_dur, utils::hash_function::HashFunction};
 use num_primes::Generator;
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 
 /// S-Sparse Recovery Data Structure
 ///
 /// Algorithm for recovery and detection is based off of [Algorithm 15](https://www.cs.dartmouth.edu/~ac/Teach/CS35-Spring20/Notes/lecnotes.pdf)
 #[derive(Clone)]
-pub struct SparseRecovery {
+pub struct SparseRecovery<T: HashFunction> {
     /// Sparsity Parameter
     s: u64,
     /// The Sparse Recovery Data Structures
     structures: Vec<Vec<OneSparseRecovery>>,
     /// Hash Functions for hashing to the Sparse recovery systems
-    functions: Vec<HashFunction>,
+    functions: Vec<T>,
 }
 
-impl SparseRecovery {
+impl<T> SparseRecovery<T>
+where
+    T: HashFunction,
+{
     /// Initialize a new S-Sparse Detection and Recovery Data Structure
     ///
     /// - *n* : Universe Size
@@ -25,10 +28,10 @@ impl SparseRecovery {
     pub fn init(n: u64, s: u64, del: f32) -> Self {
         let t = (s as f32 / del).log2().ceil() as u64;
 
-        let start = Instant::now();
+        start_dur!();
 
         let order = {
-            let prime_bits = (3 as f64 * (n as f64).log2()).ceil() as u64 + 1;
+            let prime_bits = (3_f64 * (n as f64).log2()).ceil() as u64 + 1;
             let prime = Generator::new_prime(prime_bits);
             prime
                 .to_u32_digits()
@@ -40,7 +43,7 @@ impl SparseRecovery {
                 })
         };
 
-        println!("Initializing Sparse REcovery {:?} - {} x {}", n, t, 2 * s);
+        println!("Initializing Sparse Recovery {:?} - {} x {}", n, t, 2 * s);
 
         let structures = (0..t)
             .into_iter()
@@ -52,13 +55,11 @@ impl SparseRecovery {
             })
             .collect();
 
-        let functions = (0..t)
-            .into_iter()
-            .map(|_| {
-                // Need a different hash function here
-                HashFunction::init(n, 2 * s)
-            })
-            .collect();
+        printdur!("Structures", start);
+
+        start_dur!();
+
+        let functions = (0..t).into_iter().map(|_| T::init(n, 2 * s)).collect();
 
         printdur!("Setup", start);
 
@@ -76,7 +77,10 @@ impl SparseRecovery {
             .iter_mut()
             .zip(self.functions.iter())
             .for_each(|(recoveries, hasher)| {
-                let hashed_index: u32 = hasher.compute(j).iter().sum();
+                let hashed_index: u32 = hasher
+                    .compute(j)
+                    .iter()
+                    .fold(0, |end, val| end + *val as u32);
                 if let Some(recovery) = recoveries.get_mut(hashed_index as usize) {
                     recovery.feed(token);
                 };
@@ -119,6 +123,8 @@ impl SparseRecovery {
 
 #[cfg(test)]
 mod test {
+    use crate::utils::hash_function::MatrixHasher;
+
     use super::*;
 
     #[test]
@@ -135,7 +141,7 @@ mod test {
             (9, false),
         ];
 
-        let mut recovery = SparseRecovery::init(10, 3, 0.5);
+        let mut recovery = SparseRecovery::<MatrixHasher>::init(10, 3, 0.5);
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 

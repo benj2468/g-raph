@@ -190,27 +190,6 @@ impl Verification {
     pub fn is_safe_prime(n: &BigUint) -> bool {
         return is_safe_prime(n);
     }
-    /// # Very Smooth Number
-    /// This Function Is Deprecated And Should Rarely Be Used
-    /// ```
-    /// use num_traits::FromPrimitive;
-    /// use num_bigint::BigUint;
-    /// use num_primes::Verification;
-    ///
-    /// fn main(){
-    ///     // Set BigUint To 7
-    ///     let x: BigUint = BigUint::from_u64(7u64).unwrap();
-    ///
-    ///     // Verify Its A Smooth Number
-    ///     let result: bool = Verification::is_smooth_number(&x,31.0,5);
-    ///
-    ///     println!("Is A {} Smooth Number: {}",x,result);
-    /// }
-    /// ```
-    #[deprecated]
-    pub fn is_very_smooth_number(m: &BigUint, n: f64, c: u32) -> bool {
-        return vsn(m, n, c);
-    }
 }
 
 impl Factorization {
@@ -251,11 +230,10 @@ impl Factorization {
         // STEP 2 | 3..sqrt(n) | Divide i by n. On failure, add 2 to i
         let n_sqrt = n.sqrt().to_usize().unwrap();
 
-        for mut i in 3..n_sqrt {
+        for i in 3..n_sqrt {
             while n.divides(&BigUint::from(i)) {
                 n = n / BigUint::from(i);
             }
-            i = i + 2usize;
         }
 
         // Step 3
@@ -418,7 +396,7 @@ fn div_small_primes(numb: &BigUint) -> bool {
             return false;
         }
     }
-    return true;
+    true
 }
 
 fn fermat(candidate: &BigUint) -> bool {
@@ -492,15 +470,15 @@ fn rewrite(n: &BigUint) -> (BigUint, BigUint) {
     let mut d: BigUint = n - &one;
 
     // The Main Loop That Checks Whether The Number is even and then divides by 2 and stores a counter
-    while d.is_even() == true {
+    while d.is_even() {
         d /= &two;
-        i = i + &one;
+        i += &one;
     }
 
     //println!("Factors:");
     //println!("d: {}",d);
     //println!("2^{}",i);
-    return (d.clone(), i);
+    (d, i)
 }
 
 fn is_prime(candidate: &BigUint) -> bool {
@@ -525,26 +503,6 @@ fn is_prime(candidate: &BigUint) -> bool {
     true
 }
 
-// p = 2q + 1
-#[deprecated]
-fn is_safe_prime_add(number: &BigUint) -> bool {
-    // number == q
-
-    let one = BigUint::one();
-    let two = &one + &one;
-
-    let x = number * two;
-
-    // p
-    let p = x + one;
-
-    if is_prime(&p) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
 // (p - 1)/2
 fn is_safe_prime(number: &BigUint) -> bool {
     let one = BigUint::one();
@@ -552,49 +510,7 @@ fn is_safe_prime(number: &BigUint) -> bool {
 
     let result = (number - one) / two;
 
-    if is_prime(&result) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-// TODO FIX ME
-#[deprecated]
-fn vsn(m: &BigUint, n: f64, c: u32) -> bool {
-    // c: fixed constant
-
-    // if m's greatest prime factor < log(n)^c
-    let result = n.log10().powi(c as i32).ceil();
-
-    let factor = Factorization::prime_factor(m.clone()).unwrap();
-
-    if factor <= BigUint::from_f64(result).unwrap() {
-        return true;
-    } else if factor > BigUint::from_f64(result).unwrap() {
-        return false;
-    } else {
-        panic!("The Very Smooth Function Is Deprecated And Should Not Be Used")
-    }
-}
-
-#[deprecated]
-fn pollard_rho(mut n: BigUint) {
-    // Initialize Random Number Generator
-    let mut rng = rand::thread_rng();
-
-    // Set one and two
-    let zero: BigUint = Zero::zero();
-    let one: BigUint = One::one();
-    let two: BigUint = &one + &one;
-
-    // x
-    let x = &two;
-    let mut y = &zero;
-
-    let mut i: usize = 0usize;
-    let mut counter: usize = 10usize;
-    //let x = rng.gen_biguint_range(&zero,&(&two % (n - two));
+    is_prime(&result)
 }
 
 #[cfg(test)]

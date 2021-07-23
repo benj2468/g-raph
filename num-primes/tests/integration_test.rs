@@ -1,8 +1,8 @@
-use num_primes::{Generator,Verification};
+use num_primes::{Generator, Verification};
 
 #[cfg(test)]
 #[test]
-fn generate_all(){
+fn generate_all() {
     let prime = Generator::new_prime(512);
     let _uint = Generator::new_uint(1024);
 

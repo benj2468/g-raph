@@ -5,5 +5,6 @@
 //! - Professor Amit Chakrabarti
 
 pub mod graph;
+pub mod utils;
 #[macro_use]
 pub mod macros;
