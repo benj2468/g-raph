@@ -102,8 +102,7 @@ impl StreamColoring {
 
         if let Some(sparse_recovery_output) = sparse_recovery.query() {
             (0..palette_size).into_iter().for_each(|color| {
-                let mut graph =
-                    Graph::from_adj_list(HashMap::<u32, HashSet<(u32, Option<()>)>>::new());
+                let mut graph = Graph::<u32, ()>::new(HashMap::new());
 
                 sparse_recovery_output.iter().for_each(|(edge, _)| {
                     let edge = Edge::from_d1(*edge);

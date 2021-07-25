@@ -1,3 +1,5 @@
+//! Distinct Counting
+
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -20,6 +22,7 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
 }
 
 pub trait Distinct {
+    /// Tidemark Algorithm
     fn tidemark(self) -> f32;
 }
 

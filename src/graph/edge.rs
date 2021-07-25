@@ -1,4 +1,4 @@
-//! Module for Edge Definitions
+//! Supporting Edge Definitions
 
 use std::ops::Not;
 
@@ -29,7 +29,7 @@ impl<T, W> Not for Edge<T, W> {
 
 impl<T, W> Edge<T, W>
 where
-    T: Eq + PartialEq + PartialOrd,
+    T: Eq + PartialOrd,
 {
     /// Creates an edge given two vertices
     pub fn init(v1: T, v2: T) -> Self {
@@ -106,6 +106,7 @@ impl<W> Edge<u32, W> {
         Self::formula(min, max)
     }
 
+    #[doc(hidden)]
     fn formula(min: &u32, max: &u32) -> u64 {
         if *max == 0 {
             return 0;

@@ -14,7 +14,7 @@ where
     pub fn color_degeneracy(self) -> Coloring<T> {
         let mut ordering = vec![];
 
-        let mut graph = self.clone().with_vertex_recaller();
+        let mut graph: GraphWithRecaller<T, W> = self.clone().into();
 
         while let Some(min) = graph.remove_min() {
             ordering.push(min);

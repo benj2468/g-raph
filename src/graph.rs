@@ -11,52 +11,103 @@ use priority_queue::PriorityQueue;
 pub mod edge;
 
 use edge::*;
+
+/// A graph is, conceptually, a tuple G = (V, E), where:
+///
+/// V \subset R i.e. The graphs set of vertices
+/// E = {(u,v,w) : u,v \in V, w \in W} i.e. The graphs set of edges
+/// W = Set of possible weights
+///
+/// In our implementation, a graph is stored as an adjacency list form, or a HashMap of vertices to a set of EdgeDestinations. A graph is generic over the type of vertex, `T`, and the type of the edges weight: `W`
 #[derive(Debug, Clone)]
 pub struct Graph<T, W>
 where
     T: Hash + Eq,
 {
     adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>,
-    vertex_heap: Option<PriorityQueue<T, Reverse<usize>>>,
 }
 
-impl<T, W> Graph<T, W>
+pub struct GraphWithRecaller<T, W>
+where
+    T: Hash + Eq,
+{
+    graph: Graph<T, W>,
+    /// Component of the graph that keeps track of degree orderings, not instantialized unless requested
+    vertex_heap: PriorityQueue<T, Reverse<usize>>,
+}
+
+impl<T, W> From<Graph<T, W>> for GraphWithRecaller<T, W>
+where
+    T: Hash + Eq + Clone,
+    W: Clone,
+{
+    /// Add a vertex recaller structure to our Graph
+    ///
+    /// This enabled us to always know the vertex of minimum degree
+    ///
+    /// ## Example
+    /// ```
+    /// let mut map = HashMap::new();
+    /// map.insert(0, vec![1,2].into_iter().collect());
+    /// map.insert(1, vec![0].into_iter().collect());
+    /// map.insert(2, vec![0].into_iter().collect());
+    /// let graph = Graph::new(map).with_vertex_recaller();
+    ///
+    /// let min = graph.
+    /// ```
+    fn from(graph: Graph<T, W>) -> Self {
+        let mut queue = PriorityQueue::new();
+
+        graph
+            .adjacency_list
+            .clone()
+            .into_iter()
+            .for_each(|(v, edges)| {
+                queue.push(v, Reverse(edges.len()));
+            });
+
+        Self {
+            graph,
+            vertex_heap: queue,
+        }
+    }
+}
+
+impl<T, W> GraphWithRecaller<T, W>
 where
     T: Hash + Eq + Clone + std::fmt::Debug + Default + PartialOrd,
     W: Hash + Eq + Clone + Default + std::fmt::Debug,
 {
-    pub fn from_adj_list(matrix: HashMap<T, HashSet<(T, Option<W>)>>) -> Self {
-        let adjacency_list = matrix
-            .into_iter()
-            .map(|(v, edges)| {
-                (
-                    v,
-                    edges
-                        .into_iter()
-                        .map(|(dest, label)| EdgeDestination::init(dest, label))
-                        .collect(),
-                )
-            })
-            .collect();
+    fn remove_min(&mut self) -> Option<T> {
+        let Self { graph, vertex_heap } = self;
+        let min = vertex_heap.pop();
 
-        Self {
-            adjacency_list,
-            vertex_heap: None,
-        }
+        if let Some((vertex, _)) = min {
+            let neighbors = graph.adjacency_list.get(&vertex);
+            if let Some(neighbors) = neighbors {
+                neighbors.iter().for_each(|neighbor| {
+                    let destination = neighbor.destination();
+                    let current = vertex_heap.get_priority(destination).unwrap().0;
+                    vertex_heap.change_priority(destination, Reverse(current - 1));
+                })
+            }
+            graph.remove_vertex(&vertex);
+
+            return Some(vertex);
+        };
+
+        None
     }
+}
 
-    pub fn with_vertex_recaller(self) -> Self {
-        let mut queue = PriorityQueue::new();
-
-        self.adjacency_list.iter().for_each(|(v, edges)| {
-            queue.push(v.clone(), Reverse(edges.len()));
-        });
-
-        let mut new = self;
-
-        new.vertex_heap.replace(queue);
-
-        new
+impl<T, W> Graph<T, W>
+where
+    T: Hash + Eq + Clone + PartialOrd,
+    W: Hash + Eq + Clone,
+{
+    /// Create a new graph from an Adjacency List
+    pub fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self {
+        Self { adjacency_list }
     }
 
     pub fn get_neighbors(&self, vertex: &T) -> Option<&HashSet<EdgeDestination<T, W>>> {
@@ -114,31 +165,10 @@ where
     }
 
     pub fn remove_min(&mut self) -> Option<T> {
-        let Self {
-            adjacency_list,
-            vertex_heap,
-        } = self;
-        if let Some(heap) = vertex_heap {
-            let min = heap.pop();
-
-            if let Some((vertex, _)) = min {
-                let neighbors = adjacency_list.get(&vertex);
-                if let Some(neighbors) = neighbors {
-                    neighbors.iter().for_each(|neighbor| {
-                        let destination = neighbor.destination();
-                        let current = heap.get_priority(destination).unwrap().0;
-                        heap.change_priority(destination, Reverse(current - 1));
-                    })
-                }
-                self.remove_vertex(&vertex);
-
-                return Some(vertex);
-            };
-        } else if let Some((vertex, _)) = self.min_degree() {
+        self.min_degree().map(|(vertex, _)| {
             self.remove_vertex(&vertex);
-        }
-
-        None
+            vertex
+        })
     }
 
     pub fn add_edge(&mut self, edge: Edge<T, W>) {

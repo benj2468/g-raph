@@ -1,10 +1,4 @@
-/// A structure for containing a finite field, and arithmetic within that field.
-///
-/// The value contained within the structure is the size of the field
-#[derive(Clone, Copy)]
-pub struct FiniteField {
-    order: u64,
-}
+//! Supporting Finite Field Arithmetic
 
 /// An element of some field.
 ///
@@ -37,6 +31,14 @@ impl std::cmp::PartialEq<u64> for FieldElement {
     fn eq(&self, other: &u64) -> bool {
         self.0 == *other
     }
+}
+
+/// A structure for containing a finite field, and arithmetic within that field.
+///
+/// The value contained within the structure is the size of the field
+#[derive(Clone, Copy)]
+pub struct FiniteField {
+    order: u64,
 }
 
 impl FiniteField {

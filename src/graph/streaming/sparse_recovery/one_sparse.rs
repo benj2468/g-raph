@@ -1,4 +1,6 @@
-/// Sparse Recover
+//! One Sparse Recovery
+
+/// Sparse Recovery
 ///
 /// This File is a WIP
 ///

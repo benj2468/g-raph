@@ -1,7 +1,10 @@
+//! More Generalized s-Sparse Recovery
+
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
-use crate::{printdur, start_dur, utils::hash_function::HashFunction};
+use crate::utils::hash_function::HashFunction;
 use num_primes::Generator;
 use std::collections::HashMap;
+use std::time::Instant;
 
 /// S-Sparse Recovery Data Structure
 ///
@@ -28,8 +31,6 @@ where
     pub fn init(n: u64, s: u64, del: f32) -> Self {
         let t = (s as f32 / del).log2().ceil() as u64;
 
-        start_dur!();
-
         let order = {
             let prime_bits = (3_f64 * (n as f64).log2()).ceil() as u64 + 1;
             let prime = Generator::new_prime(prime_bits);
@@ -43,6 +44,7 @@ where
                 })
         };
 
+        #[cfg(test)]
         println!("Initializing Sparse Recovery {:?} - {} x {}", n, t, 2 * s);
 
         let structures = (0..t)
@@ -55,13 +57,7 @@ where
             })
             .collect();
 
-        printdur!("Structures", start);
-
-        start_dur!();
-
         let functions = (0..t).into_iter().map(|_| T::init(n, 2 * s)).collect();
-
-        printdur!("Setup", start);
 
         Self {
             s,

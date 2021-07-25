@@ -1,3 +1,5 @@
+//! Supporting randomized Hash Functions
+
 use num_bigint::BigUint;
 use num_primes::Generator;
 use num_traits::pow::Pow;
