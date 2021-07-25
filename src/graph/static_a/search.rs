@@ -11,10 +11,13 @@ use std::{
 pub trait Searcher<T>: Default {
     /// Called when there are no more vertices in the current search scope, and we need to look for a new, unconnected unvisited vertex
     fn new_component(&mut self);
-    /// Called after visiting a node. This is called AFTER a node is read and processed, not when we first see it.
+    /// Called before visiting a node. This is called BEFORE a node is processed. It is called when we find a new node from a source node.
     ///
     /// i.e. when we pop it from the stack/queue
-    fn visit(&mut self, node: &T);
+    ///
+    /// - *source*: The node that was just popped from the list
+    /// - *node*: The node that is a neighbor of source.
+    fn visit(&mut self, source: &T, node: &T);
 }
 
 impl<T, W> Graph<T, W>
@@ -40,11 +43,12 @@ where
                     for neighbor in neighbors {
                         let destination = neighbor.destination();
                         if *visited.get(destination).unwrap() {
+                            searcher.visit(current, destination);
                             to_visit.push_back(destination);
                         }
                     }
                 }
-                searcher.visit(current);
+
                 visited.insert(current, true);
             } else {
                 if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
@@ -77,11 +81,12 @@ where
                     for neighbor in neighbors {
                         let destination = neighbor.destination();
                         if *visited.get(destination).unwrap() {
+                            searcher.visit(current, destination);
                             to_visit.push_back(destination);
                         }
                     }
                 }
-                searcher.visit(current);
+
                 visited.insert(current, true);
             } else {
                 if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
