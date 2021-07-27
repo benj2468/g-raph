@@ -73,7 +73,7 @@ impl StreamColoring {
     ///
     /// - *edge* : An edge between two vertices indicated by integers within *n*
     /// - *c* : True if edge is insertion, false if deletion
-    pub fn feed<W: Debug>(&mut self, edge: Edge<u32, W>, c: bool) {
+    pub fn feed<W: Debug + Default>(&mut self, edge: Edge<u32, W>, c: bool) {
         let Self {
             colors,
             sparse_recovery,
@@ -136,7 +136,10 @@ impl StreamColoring {
     fn get_edge_colors<'a, W>(
         colors: &'a [ColorTuple],
         edge: &'a Edge<u32, W>,
-    ) -> Option<(&'a ColorTuple, &'a ColorTuple)> {
+    ) -> Option<(&'a ColorTuple, &'a ColorTuple)>
+    where
+        W: Default,
+    {
         let (u, v) = edge.vertices();
         let color1 = colors.get(*u as usize)?;
         let color2 = colors.get(*v as usize)?;

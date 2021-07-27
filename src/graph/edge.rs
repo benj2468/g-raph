@@ -12,7 +12,7 @@ pub struct Edge<T, W> {
     /// Whether or not the vertex is directed
     directed: bool,
     /// The weight, or any label associated with the edge
-    label: Option<W>,
+    label: W,
 }
 
 impl<T, W> Not for Edge<T, W> {
@@ -30,6 +30,7 @@ impl<T, W> Not for Edge<T, W> {
 impl<T, W> Edge<T, W>
 where
     T: Eq + PartialOrd,
+    W: Default,
 {
     /// Creates an edge given two vertices
     pub fn init(v1: T, v2: T) -> Self {
@@ -37,7 +38,7 @@ where
             v1,
             v2,
             directed: false,
-            label: None,
+            label: W::default(),
         }
     }
 
@@ -47,13 +48,13 @@ where
             v1,
             v2,
             directed: true,
-            label: None,
+            label: W::default(),
         }
     }
 
     /// Updates the label, or places in a label if none exists
     pub fn update_label(&mut self, new: W) {
-        self.label.replace(new);
+        self.label = new;
     }
 
     /// Determines whether a vertex is incident to an edge
@@ -75,7 +76,10 @@ where
     }
 }
 
-impl<W> Edge<u32, W> {
+impl<W> Edge<u32, W>
+where
+    W: Default,
+{
     /// Creates an edge from a 1-dimensional space value, assuming a total possible number of edges being n^2
     pub fn from_d1(d1: u64) -> Self {
         let (mut min, mut max): (u32, u32) = (0, 0);
@@ -95,7 +99,7 @@ impl<W> Edge<u32, W> {
             v1: min as u32,
             v2: max as u32,
             directed: false,
-            label: None,
+            label: W::default(),
         }
     }
 
@@ -125,7 +129,7 @@ mod test {
             v1: 4,
             v2: 5,
             directed: false,
-            label: None,
+            label: (),
         };
 
         let d1 = edge.to_d1();
@@ -142,16 +146,29 @@ mod test {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct EdgeDestination<T, W> {
     destination: T,
-    label: Option<W>,
+    label: W,
 }
 
-impl<T, W> EdgeDestination<T, W> {
-    pub fn init(destination: T, label: Option<W>) -> Self {
+impl<T, W> EdgeDestination<T, W>
+where
+    W: Default,
+{
+    pub fn init_with_label(destination: T, label: W) -> Self {
         Self { destination, label }
+    }
+    pub fn init(destination: T) -> Self {
+        Self {
+            destination,
+            label: W::default(),
+        }
     }
 
     pub fn destination(&self) -> &T {
         &self.destination
+    }
+
+    pub fn weight(&self) -> &W {
+        &self.label
     }
 }
 

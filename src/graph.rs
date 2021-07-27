@@ -103,7 +103,7 @@ where
 impl<T, W> Graph<T, W>
 where
     T: Hash + Eq + Clone + PartialOrd,
-    W: Hash + Eq + Clone,
+    W: Hash + Eq + Clone + Default,
 {
     /// Create a new graph from an Adjacency List
     pub fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self {
