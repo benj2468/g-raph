@@ -51,20 +51,14 @@ macro_rules! big_graph_test {
 
 #[test]
 fn stanford_graphs() {
-    let file_name = "facebook_combined.txt";
-    let n = 4039_f32;
-
-    let min_color = big_graph_test!(file_name, n);
+    let min_color = big_graph_test!("facebook_combined.txt", 4039_f32);
 
     println!("{:?}", min_color)
 }
 
 #[test]
 fn fake_test() {
-    let file_name = "fake.txt";
-    let n = 10_f32;
-
-    let min_color = big_graph_test!(file_name, n);
+    let min_color = big_graph_test!("fake.txt", 10_f32);
 
     println!("{:?}", min_color)
 }

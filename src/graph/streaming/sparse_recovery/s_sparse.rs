@@ -10,18 +10,18 @@ use std::time::Instant;
 ///
 /// Algorithm for recovery and detection is based off of [Algorithm 15](https://www.cs.dartmouth.edu/~ac/Teach/CS35-Spring20/Notes/lecnotes.pdf)
 #[derive(Clone)]
-pub struct SparseRecovery<T: HashFunction> {
+pub struct SparseRecovery<F: HashFunction> {
     /// Sparsity Parameter
     s: u64,
     /// The Sparse Recovery Data Structures
     structures: Vec<Vec<OneSparseRecovery>>,
     /// Hash Functions for hashing to the Sparse recovery systems
-    functions: Vec<T>,
+    functions: Vec<F>,
 }
 
-impl<T> SparseRecovery<T>
+impl<F> SparseRecovery<F>
 where
-    T: HashFunction,
+    F: HashFunction,
 {
     /// Initialize a new S-Sparse Detection and Recovery Data Structure
     ///
@@ -44,8 +44,12 @@ where
                 })
         };
 
-        #[cfg(test)]
-        println!("Initializing Sparse Recovery {:?} - {} x {}", n, t, 2 * s);
+        println!(
+            "Initializing Sparse Recovery n: {:?} - t: {} x 2s: {}",
+            n,
+            t,
+            2 * s
+        );
 
         let structures = (0..t)
             .into_iter()
@@ -57,7 +61,7 @@ where
             })
             .collect();
 
-        let functions = (0..t).into_iter().map(|_| T::init(n, 2 * s)).collect();
+        let functions = (0..t).into_iter().map(|_| F::init(n, 2 * s)).collect();
 
         Self {
             s,

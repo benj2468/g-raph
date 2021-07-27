@@ -1,11 +1,15 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
+    time::Instant,
 };
 
 use rand::Rng;
 
-use crate::graph::{streaming::sparse_recovery::s_sparse::SparseRecovery, Edge, Graph};
+use crate::{
+    graph::{streaming::sparse_recovery::s_sparse::SparseRecovery, Edge, Graph},
+    printdur,
+};
 
 use crate::utils::hash_function::FieldHasher;
 
@@ -49,7 +53,11 @@ impl StreamColoring {
     pub fn init(n: u32, k: u64) -> Self {
         let s = ((C * n as f32) as f64 * (n as f64).log2()).round() as u64;
 
+        let start = Instant::now();
+
         let palette_size = (((2 * n as u64 * k) as f32) / (s as f32)).ceil() as u32;
+
+        println!("Attempting to color with Palette Size: {}", palette_size);
 
         let mut colors = vec![];
         let mut rng = rand::thread_rng();
@@ -60,6 +68,8 @@ impl StreamColoring {
         }
 
         let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s, 0.5);
+
+        printdur!("Completed Initialization", start);
 
         Self {
             n,
