@@ -1,8 +1,12 @@
 //! Supporting randomized Hash Functions
 
+use std::time::Instant;
+
 use num_bigint::BigUint;
 use num_primes::Generator;
-use num_traits::pow::Pow;
+use num_traits::{pow::Pow, ToPrimitive};
+
+use crate::printdur;
 
 /// Describes a Hashing Function from n bits to l bits
 ///
@@ -12,10 +16,10 @@ pub trait HashFunction {
     /// Initialize a new hash function. This should
     fn init(n: u64, l: u64) -> Self;
     /// Computes the value of h(x), where h is the current hash function
-    fn compute(&self, x: u64) -> Vec<u8>;
+    fn compute(&self, x: u64) -> usize;
     /// Computes the boolean value of h(x) = *0*, where h is the current hash function
     fn is_zero(&self, x: u64) -> bool {
-        self.compute(x).iter().find(|x| **x > 0).is_none()
+        self.compute(x) == 0
     }
 
     #[cfg(test)]
@@ -38,7 +42,7 @@ pub trait HashFunction {
 pub struct FieldHasher {
     a: BigUint,
     b: BigUint,
-    bits: BigUint,
+    order: BigUint,
     l: u64,
 }
 
@@ -50,23 +54,23 @@ impl HashFunction for FieldHasher {
         Self {
             a,
             b,
-            bits: Pow::pow(BigUint::from(2u32), BigUint::from(n)),
+            order: Pow::pow(BigUint::from(2u32), BigUint::from(n)),
             l,
         }
     }
 
-    fn compute(&self, x: u64) -> Vec<u8> {
-        let Self { a, b, bits, .. } = self;
+    fn compute(&self, x: u64) -> usize {
+        let start = Instant::now();
+        let Self { a, b, order, l, .. } = self;
+
         let x: BigUint = x.into();
 
-        let computed = (((a * x) % bits) + b) % bits;
+        let product = (a * x) & (order - 1_u32);
+        let computed: BigUint = (product ^ b) & (order - 1_u32);
 
-        computed
-            .to_radix_be(2)
-            .into_iter()
-            .rev()
-            .take(self.l as usize)
-            .collect()
+        let mask: BigUint = Pow::pow(BigUint::from(2u32), BigUint::from(*l + 1)) - 1u32;
+
+        (computed & mask).count_ones() as usize
     }
 
     #[cfg(test)]
@@ -74,7 +78,7 @@ impl HashFunction for FieldHasher {
         Self {
             a: 5u32.into(),
             b: 2u32.into(),
-            bits: 3u32.into(),
+            order: 3u32.into(),
             l: 2,
         }
     }
@@ -104,7 +108,7 @@ impl HashFunction for MatrixHasher {
         Self { a, b }
     }
 
-    fn compute(&self, x: u64) -> Vec<u8> {
+    fn compute(&self, x: u64) -> usize {
         let x: BigUint = x.into();
         let a: Vec<u8> = self
             .a
@@ -112,7 +116,7 @@ impl HashFunction for MatrixHasher {
             .map(|a| ((a & &x).count_ones() % 2) as u8)
             .collect();
 
-        (BigUint::from_radix_be(&a, 2).unwrap() ^ &self.b).to_radix_be(2)
+        (BigUint::from_radix_be(&a, 2).unwrap() ^ &self.b).count_ones() as usize
     }
 
     #[cfg(test)]

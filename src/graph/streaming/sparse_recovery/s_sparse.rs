@@ -1,6 +1,7 @@
 //! More Generalized s-Sparse Recovery
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
+use crate::printdur;
 use crate::utils::hash_function::HashFunction;
 use num_primes::Generator;
 use std::collections::HashMap;
@@ -77,11 +78,8 @@ where
             .iter_mut()
             .zip(self.functions.iter())
             .for_each(|(recoveries, hasher)| {
-                let hashed_index: u32 = hasher
-                    .compute(j)
-                    .iter()
-                    .fold(0, |end, val| end + *val as u32);
-                if let Some(recovery) = recoveries.get_mut(hashed_index as usize) {
+                let hashed_index = hasher.compute(j);
+                if let Some(recovery) = recoveries.get_mut(hashed_index) {
                     recovery.feed(token);
                 };
             });
