@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use num_bigint::BigUint;
 use num_primes::Generator;
-use num_traits::{pow::Pow, ToPrimitive};
+use num_traits::{pow::Pow, ToPrimitive, Zero};
 
 use crate::printdur;
 
@@ -65,7 +65,16 @@ impl HashFunction for FieldHasher {
 
         let x: BigUint = x.into();
 
-        let product = (a * x) & (order - 1_u32);
+        let product = {
+            if x.is_zero() {
+                return 0;
+            }
+            let bits = x.bits();
+            let shifted = a << (bits - 1);
+            let difference = &x - Pow::pow(BigUint::from(2u32), bits - 1);
+            (shifted + (x * difference)) & (order - 1_u32)
+        };
+
         let computed: BigUint = (product ^ b) & (order - 1_u32);
 
         let mask: BigUint = Pow::pow(BigUint::from(2u32), BigUint::from(*l + 1)) - 1u32;
