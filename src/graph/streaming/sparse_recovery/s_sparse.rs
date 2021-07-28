@@ -1,11 +1,9 @@
 //! More Generalized s-Sparse Recovery
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
-use crate::printdur;
 use crate::utils::hash_function::HashFunction;
 use num_primes::Generator;
 use std::collections::HashMap;
-use std::time::Instant;
 
 /// S-Sparse Recovery Data Structure
 ///
@@ -44,13 +42,6 @@ where
                     val + digit_value
                 })
         };
-
-        println!(
-            "Initializing Sparse Recovery n: {:?} - t: {} x 2s: {}",
-            n,
-            t,
-            2 * s
-        );
 
         let structures = (0..t)
             .into_iter()

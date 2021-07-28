@@ -83,8 +83,7 @@ where
         let min = vertex_heap.pop();
 
         if let Some((vertex, _)) = min {
-            let neighbors = graph.adjacency_list.get(&vertex);
-            if let Some(neighbors) = neighbors {
+            if let Some(neighbors) = graph.adjacency_list.get(&vertex) {
                 neighbors.iter().for_each(|neighbor| {
                     let destination = neighbor.destination();
                     let current = vertex_heap.get_priority(destination).unwrap().0;
@@ -119,7 +118,7 @@ where
 
         self.adjacency_list
             .iter_mut()
-            .for_each(|(vertex, edges)| edges.retain(|edge| edge.destination() == vertex));
+            .for_each(|(_, edges)| edges.retain(|edge| edge.destination() != vertex));
     }
 
     /// This is an O(n), if we were to back the graph with a priority queue we could speed this up, but for now who cares

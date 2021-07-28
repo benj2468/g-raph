@@ -57,13 +57,11 @@ where
                     }
                 }
                 visited.insert(current, true);
+            } else if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
+                to_visit.push_back(next);
+                searcher.new_component();
             } else {
-                if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
-                    to_visit.push_back(next);
-                    searcher.new_component();
-                } else {
-                    break;
-                }
+                break;
             }
         }
 
@@ -98,13 +96,11 @@ where
                 }
 
                 visited.insert(current, true);
+            } else if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
+                to_visit.push_back(next);
+                searcher.new_component();
             } else {
-                if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
-                    to_visit.push_back(next);
-                    searcher.new_component();
-                } else {
-                    break;
-                }
+                break;
             }
         }
 

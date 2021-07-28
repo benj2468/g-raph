@@ -1,6 +1,6 @@
 //! Supporting Edge Definitions
 
-use std::ops::Not;
+use std::{fmt::Debug, ops::Not};
 
 /// An Edge is defined as a relation between two vertices. It may, or may not, have a direction, and may or may not have a label.
 #[derive(Debug, PartialEq, Eq, Hash, Default, Clone, Copy)]
@@ -66,13 +66,18 @@ where
         self.directed
     }
 
-    /// Returns the vertices incident to an edge, (source, dest) if directed
-    pub fn vertices(&self) -> (&T, &T) {
+    /// Returns the vertices incident to an edge, ordered.
+    pub fn vertices_ord(&self) -> (&T, &T) {
         if self.v1 <= self.v2 {
             (&self.v1, &self.v2)
         } else {
             (&self.v2, &self.v1)
         }
+    }
+
+    // Returns the vertices indicent to an edge, (source, dest) if ordered
+    pub fn vertices(&self) -> (&T, &T) {
+        (&self.v1, &self.v2)
     }
 }
 
@@ -84,12 +89,17 @@ where
     pub fn from_d1(d1: u64) -> Self {
         let (mut min, mut max): (u32, u32) = (0, 0);
         loop {
-            if Self::formula(&min, &max) == d1 {
-                break;
-            }
+            // if Self::formula(&min, &max) == d1 {
+            //     if min == max {
+            //         panic!("CANNOT CREATE LOOP");
+            //     } else {
+            //         break;
+            //     }
             if min == max {
                 max += 1;
                 min = 0;
+            } else if Self::formula(&min, &max) == d1 {
+                break;
             } else {
                 min += 1;
             }
@@ -105,7 +115,7 @@ where
 
     /// Converts an edge in `N^2` space to `N` space, provided a number of vertices in the graph
     pub fn to_d1(&self) -> u64 {
-        let (min, max) = self.vertices();
+        let (min, max) = self.vertices_ord();
 
         Self::formula(min, max)
     }
@@ -138,7 +148,7 @@ mod test {
 
         let edge = Edge::<u32, ()>::from_d1(14);
 
-        assert_eq!(edge.vertices(), (&4, &5));
+        assert_eq!(edge.vertices_ord(), (&4, &5));
     }
 }
 
@@ -174,8 +184,8 @@ where
 
 impl<T, W> From<&Edge<T, W>> for EdgeDestination<T, W>
 where
-    T: Clone,
-    W: Clone,
+    T: Clone + Eq + PartialOrd,
+    W: Clone + Default,
 {
     fn from(edge: &Edge<T, W>) -> Self {
         EdgeDestination {

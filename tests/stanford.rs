@@ -22,6 +22,8 @@ macro_rules! big_graph_test {
             })
             .collect();
 
+        println!("Completed Initialization");
+
         for line in io::BufReader::new(file).lines() {
             if let Ok(line) = line {
                 let mut split = line.split(" ");
@@ -36,12 +38,17 @@ macro_rules! big_graph_test {
             }
         }
 
+        println!("Completed Stream");
+
         let mut min_color = INFINITY as usize;
-        for colorer in colorers {
+        for colorer in colorers.into_iter().rev() {
             if let Some(coloring) = colorer.query() {
                 let count = coloring.iter().unique().count();
-
-                min_color = min(min_color, count);
+                if count >= min_color {
+                    break;
+                } else {
+                    min_color = count
+                }
             }
         }
 

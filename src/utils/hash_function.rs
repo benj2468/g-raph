@@ -1,10 +1,9 @@
 //! Supporting randomized Hash Functions
 
-use std::time::Instant;
-
 use num_bigint::BigUint;
 use num_primes::Generator;
-use num_traits::{pow::Pow, ToPrimitive, Zero};
+use num_traits::ToPrimitive;
+use std::{fmt::Debug, time::Instant};
 
 use crate::printdur;
 
@@ -39,56 +38,69 @@ pub trait HashFunction {
 /// Computations are all performed in F_{2^n}.
 ///
 /// a and b are initialized uniformly at random upon initializing the function.
+///
+/// Storage:
+/// - a (log(n) bits)
+/// - b (log(n) bits)
+/// - order (n bits)
+/// - 64 bits (constant)
 pub struct FieldHasher {
     a: BigUint,
     b: BigUint,
     order: BigUint,
-    l: u64,
+    domain: u64,
+    range: u64,
+}
+
+impl Debug for FieldHasher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Field Hasher - [{}] -> [{}]", self.domain, self.range)
+    }
 }
 
 impl HashFunction for FieldHasher {
     fn init(n: u64, l: u64) -> Self {
-        let a = Generator::new_uint(n);
-        let b = Generator::new_uint(n);
+        let domain = (n as f64).log2().ceil() as u64;
+        let a = Generator::new_uint(domain);
+        let b = Generator::new_uint(domain);
+        let range = (l as f64).log2().ceil() as u64;
 
         Self {
+            domain,
             a,
             b,
-            order: Pow::pow(BigUint::from(2u32), BigUint::from(n)),
-            l,
+            order: n.into(),
+            range,
         }
     }
 
     fn compute(&self, x: u64) -> usize {
-        let start = Instant::now();
-        let Self { a, b, order, l, .. } = self;
+        let Self {
+            domain,
+            a,
+            b,
+            order,
+            range,
+            ..
+        } = self;
 
         let x: BigUint = x.into();
 
-        let product = {
-            if x.is_zero() {
-                return 0;
-            }
-            let bits = x.bits();
-            let shifted = a << (bits - 1);
-            let difference = &x - Pow::pow(BigUint::from(2u32), bits - 1);
-            (shifted + (x * difference)) & (order - 1_u32)
-        };
+        let product = (a * x) % (order - 1_u32);
 
-        let computed: BigUint = (product ^ b) & (order - 1_u32);
+        let computed: BigUint = (product ^ b) % (order - 1_u32);
 
-        let mask: BigUint = Pow::pow(BigUint::from(2u32), BigUint::from(*l + 1)) - 1u32;
-
-        (computed & mask).count_ones() as usize
+        (computed >> (domain - range)).to_isize().unwrap() as usize
     }
 
     #[cfg(test)]
     fn init_test() -> Self {
         Self {
+            domain: 3,
             a: 5u32.into(),
             b: 2u32.into(),
             order: 3u32.into(),
-            l: 2,
+            range: 2,
         }
     }
 }
@@ -103,6 +115,11 @@ impl HashFunction for FieldHasher {
 /// A and b are initialized uniformly at random upon initializing the function.
 ///
 /// This is much much slower to initialize than the FieldHasher
+///
+/// Storage:
+/// - a (l * n bits)
+/// - b (l bits)
+/// - [l constant]
 #[derive(Debug, Clone)]
 pub struct MatrixHasher {
     a: Vec<BigUint>,
@@ -111,8 +128,20 @@ pub struct MatrixHasher {
 
 impl HashFunction for MatrixHasher {
     fn init(n: u64, l: u64) -> Self {
-        let a = (0..l).into_iter().map(|_| Generator::new_uint(n)).collect();
+        let start = Instant::now();
+        println!("Initializing {:?} n bit numbers", l);
+        let a = (0..l)
+            .into_iter()
+            .map(|_| {
+                let s = Instant::now();
+                let res = Generator::new_uint(n);
+                printdur!("an n bit number", s);
+                res
+            })
+            .collect();
         let b = Generator::new_uint(l);
+
+        printdur!("Matrix Hasher initialization", start);
 
         Self { a, b }
     }

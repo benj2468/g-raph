@@ -1,15 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
-    time::Instant,
 };
 
 use rand::Rng;
 
-use crate::{
-    graph::{streaming::sparse_recovery::s_sparse::SparseRecovery, Edge, Graph},
-    printdur,
-};
+use crate::graph::{streaming::sparse_recovery::s_sparse::SparseRecovery, Edge, Graph};
 
 use crate::utils::hash_function::FieldHasher;
 
@@ -53,11 +49,7 @@ impl StreamColoring {
     pub fn init(n: u32, k: u64) -> Self {
         let s = ((C * n as f32) as f64 * (n as f64).log2()).round() as u64;
 
-        let start = Instant::now();
-
         let palette_size = (((2 * n as u64 * k) as f32) / (s as f32)).ceil() as u32;
-
-        println!("Attempting to color with Palette Size: {}", palette_size);
 
         let mut colors = vec![];
         let mut rng = rand::thread_rng();
@@ -68,8 +60,6 @@ impl StreamColoring {
         }
 
         let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s, 0.5);
-
-        printdur!("Completed Initialization", start);
 
         Self {
             n,
@@ -110,31 +100,37 @@ impl StreamColoring {
             ..
         } = self;
 
+        let mut monochromatic_graphs: HashMap<(u32, u32), Graph<u32, ()>> = (0..palette_size)
+            .into_iter()
+            .map(|color| ((0, color), Graph::new(HashMap::new())))
+            .collect();
+
         if let Some(sparse_recovery_output) = sparse_recovery.query() {
-            (0..palette_size).into_iter().for_each(|color| {
-                let mut graph = Graph::<u32, ()>::new(HashMap::new());
+            sparse_recovery_output.iter().for_each(|(edge, _)| {
+                let edge = Edge::from_d1(*edge);
+                let (color1, color2) = Self::get_edge_colors(&colors, &edge).unwrap();
 
-                sparse_recovery_output.iter().for_each(|(edge, _)| {
-                    let edge = Edge::from_d1(*edge);
-                    let (color1, color2) = Self::get_edge_colors(&colors, &edge).unwrap();
-
-                    if color1 == color2 && *color2 == (0, color as u32) {
-                        graph.add_edge(edge);
-                    }
-                });
-
-                // color Gi using palette {(i, j) : 1 <= j <= κ(Gi) + 1};
-                let coloring = graph.color_degeneracy();
-
-                coloring.into_iter().for_each(|(vertex, new_color)| {
-                    if new_color == 0 {
-                        return;
-                    };
-                    if let Some(current) = colors.get_mut(vertex as usize) {
-                        *current = (color as u32 + 1, new_color as u32);
-                    };
-                });
+                if color1 == color2 {
+                    monochromatic_graphs.get_mut(color1).unwrap().add_edge(edge);
+                }
             });
+
+            // color Gi using palette {(i, j) : 1 <= j <= κ(Gi) + 1};
+            monochromatic_graphs
+                .into_iter()
+                .filter(|(_, graph)| !graph.is_empty())
+                .for_each(|((_, color), graph)| {
+                    let coloring = graph.color_degeneracy();
+
+                    coloring.into_iter().for_each(|(vertex, new_color)| {
+                        if new_color == 0 {
+                            return;
+                        };
+                        if let Some(current) = colors.get_mut(vertex as usize) {
+                            *current = (color + 1, new_color as u32);
+                        };
+                    });
+                });
 
             Some(colors)
         } else {
