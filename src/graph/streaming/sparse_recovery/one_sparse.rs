@@ -147,7 +147,14 @@ impl OneSparseRecovery {
 
 #[cfg(test)]
 mod test {
+    use num_bigint::BigUint;
+
     use super::*;
+
+    #[test]
+    fn gen_prime() {
+        assert_eq!(Generator::new_prime(2), BigUint::new(vec![3]));
+    }
 
     #[test]
     fn true_positive() {

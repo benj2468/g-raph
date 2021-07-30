@@ -1,4 +1,4 @@
-#![no_std]
+// #![no_std]
 
 extern crate num;
 extern crate num_bigint as bigint;
@@ -392,6 +392,9 @@ fn div_small_primes(numb: &BigUint) -> bool {
         17761, 17783, 17789, 17791, 17807, 17827, 17837, 17839, 17851, 17863,
     ];
     for p in SMALL_PRIMES.iter() {
+        if numb == &BigUint::from(*p) {
+            return true;
+        }
         if numb % &BigUint::from(*p) == Zero::zero() {
             return false;
         }
@@ -428,6 +431,9 @@ fn miller_rabin(candidate: &BigUint, limit: usize) -> bool {
     for _i in 0..limit {
         //println!("i: {}",i);
         // Exclusive End Range
+        if two == (candidate - &one) {
+            continue;
+        }
         let a = rng.gen_biguint_range(&two, &(candidate - &one));
         //println!("a: {}",a);
         //println!("d: {}",d.clone());
