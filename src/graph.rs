@@ -44,17 +44,6 @@ where
     /// Add a vertex recaller structure to our Graph
     ///
     /// This enabled us to always know the vertex of minimum degree
-    ///
-    /// ## Example
-    /// ```
-    /// let mut map = HashMap::new();
-    /// map.insert(0, vec![1,2].into_iter().collect());
-    /// map.insert(1, vec![0].into_iter().collect());
-    /// map.insert(2, vec![0].into_iter().collect());
-    /// let graph = Graph::new(map).with_vertex_recaller();
-    ///
-    /// let min = graph.
-    /// ```
     fn from(graph: Graph<T, W>) -> Self {
         let mut queue = PriorityQueue::new();
 

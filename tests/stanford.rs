@@ -4,7 +4,6 @@ use g_raph::{
 };
 use itertools::Itertools;
 use std::{
-    cmp::min,
     f32::INFINITY,
     fs::File,
     io::{self, BufRead},
@@ -57,6 +56,7 @@ macro_rules! big_graph_test {
 }
 
 #[test]
+#[ignore]
 fn stanford_graphs() {
     let min_color = big_graph_test!("facebook_combined.txt", 4039_f32);
 

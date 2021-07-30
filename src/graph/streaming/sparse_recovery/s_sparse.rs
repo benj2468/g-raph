@@ -96,10 +96,10 @@ where
                             {
                                 return None;
                             }
-                            recovery.insert(i, lambda);
                             if recovery.keys().len() > self.s as usize {
                                 return None;
                             }
+                            recovery.insert(i, lambda);
                         }
                     }
                     _ => continue,
@@ -112,7 +112,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::utils::hash_function::MatrixHasher;
+    use crate::utils::hash_function::FieldHasher;
 
     use super::*;
 
@@ -130,7 +130,7 @@ mod test {
             (9, false),
         ];
 
-        let mut recovery = SparseRecovery::<MatrixHasher>::init(10, 3, 0.5);
+        let mut recovery = SparseRecovery::<FieldHasher>::init(100, 3, 0.5);
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 

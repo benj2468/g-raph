@@ -56,7 +56,8 @@ impl OneSparseRecovery {
     #[allow(clippy::many_single_char_names)]
     pub fn init(n: u64) -> Self {
         let mut rng = rand::thread_rng();
-        let prime_bits = (3_f64 * (n as f64).log2()).ceil() as u64 + 1;
+        let prime_bits = (3.0 * (n as f64).log2()).ceil() as u64 + 1;
+        // For some reason it cannot find a prime on 11 bits, no idea why?
         let prime = Generator::new_prime(prime_bits);
         let order = prime
             .to_u32_digits()
@@ -166,7 +167,7 @@ mod test {
             (7, false),
         ];
 
-        let mut recover = OneSparseRecovery::init(10);
+        let mut recover = OneSparseRecovery::init(100);
 
         stream.into_iter().for_each(|token| recover.feed(token));
 
@@ -194,7 +195,7 @@ mod test {
             (6, false),
         ];
 
-        let mut recover = OneSparseRecovery::init(10);
+        let mut recover = OneSparseRecovery::init(100);
 
         stream.into_iter().for_each(|token| recover.feed(token));
 
@@ -220,7 +221,7 @@ mod test {
             (0, false),
         ];
 
-        let mut recover = OneSparseRecovery::init(10);
+        let mut recover = OneSparseRecovery::init(100);
 
         stream.into_iter().for_each(|token| recover.feed(token));
 

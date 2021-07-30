@@ -27,7 +27,7 @@ pub struct StreamColoring {
     sparse_recovery: SparseRecovery<FieldHasher>,
 }
 
-pub const C: f32 = 0.4;
+pub const C: f32 = 0.1;
 
 fn combination(n: u64, k: u64) -> u64 {
     let numerator: HashSet<u64> = ((k + 1)..(n + 1)).collect();
@@ -58,6 +58,8 @@ impl StreamColoring {
             let r = rng.gen_range(0..palette_size) as u32;
             colors.push((0, r))
         }
+
+        println!("Sparsity parameter: {:?}", s);
 
         let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s, 0.5);
 
@@ -183,20 +185,11 @@ mod test {
         .collect()
     }
 
-    // (1,3),
-    // (2,4),
-    // (2,5),
-    // (4,5)
-
-    // minimum colors: 3
-
-    // degeneracy: 2
-
     #[test]
     fn test_geometric_partition() {
         let stream = test_stream();
 
-        let n: f32 = 1000.0;
+        let n: f32 = 100.0;
 
         let mut min_color = INFINITY as usize;
         let mut colorers: Vec<_> = (0..(n.log2().floor() as u32))
@@ -216,13 +209,8 @@ mod test {
         for colorer in colorers {
             if let Some(coloring) = colorer.query() {
                 let count = coloring.iter().unique().count();
-
-                println!("Guess produces #{:?} colors", count);
-
                 min_color = min(min_color, count);
             }
         }
-
-        println!("Coloring: {:?}", min_color)
     }
 }
