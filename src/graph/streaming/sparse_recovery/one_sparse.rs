@@ -174,7 +174,7 @@ mod test {
             (7, false),
         ];
 
-        let mut recover = OneSparseRecovery::init(100);
+        let mut recover = OneSparseRecovery::init(10);
 
         stream.into_iter().for_each(|token| recover.feed(token));
 
@@ -202,7 +202,7 @@ mod test {
             (6, false),
         ];
 
-        let mut recover = OneSparseRecovery::init(100);
+        let mut recover = OneSparseRecovery::init(10);
 
         stream.into_iter().for_each(|token| recover.feed(token));
 
@@ -221,14 +221,9 @@ mod test {
             (7, true),
             (9, true),
             (7, true),
-            (9, false),
-            (7, false),
-            (9, false),
-            (7, false),
-            (0, false),
         ];
 
-        let mut recover = OneSparseRecovery::init(100);
+        let mut recover = OneSparseRecovery::init(10);
 
         stream.into_iter().for_each(|token| recover.feed(token));
 

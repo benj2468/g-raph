@@ -64,11 +64,17 @@ where
 
     /// Feed a token into the Structure
     pub fn feed(&mut self, token: (u64, bool)) {
+        let Self {
+            s,
+            structures,
+            functions,
+        } = self;
         let (j, _) = token;
-        self.structures
+        structures
             .iter_mut()
-            .zip(self.functions.iter())
-            .for_each(|(recoveries, hasher)| {
+            .zip(functions.iter())
+            .enumerate()
+            .for_each(|(i, (recoveries, hasher))| {
                 let hashed_index = hasher.compute(j);
                 if let Some(recovery) = recoveries.get_mut(hashed_index) {
                     recovery.feed(token);
@@ -96,10 +102,10 @@ where
                             {
                                 return None;
                             }
+                            recovery.insert(i, lambda);
                             if recovery.keys().len() > self.s as usize {
                                 return None;
                             }
-                            recovery.insert(i, lambda);
                         }
                     }
                     _ => continue,
@@ -112,12 +118,14 @@ where
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashSet;
+
     use crate::utils::hash_function::FieldHasher;
 
     use super::*;
 
     #[test]
-    fn simple_test() {
+    fn is_s_sparse() {
         let stream: Vec<(u64, bool)> = vec![
             (0, true),
             (9, true),
@@ -130,15 +138,43 @@ mod test {
             (9, false),
         ];
 
-        let mut recovery = SparseRecovery::<FieldHasher>::init(100, 3, 0.5);
+        let mut recovery = SparseRecovery::<FieldHasher>::init(10, 1, 0.01);
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 
-        let mut expected: HashMap<u64, i32> = HashMap::new();
-        expected.insert(0, 1);
-        expected.insert(6, 1);
-        expected.insert(7, 3);
+        let mut expected: HashSet<(u64, i32)> = HashSet::new();
+        expected.insert((0, 1));
+        expected.insert((6, 1));
+        expected.insert((7, 3));
 
-        assert_eq!(recovery.query(), Some(expected))
+        let actual: HashSet<(u64, i32)> = recovery.query().unwrap().into_iter().collect();
+
+        assert!(actual.is_subset(&expected));
+    }
+
+    #[test]
+    fn not_s_sparse() {
+        let stream: Vec<(u64, bool)> = vec![
+            (1, true),
+            (2, true),
+            (3, true),
+            (4, true),
+            (5, true),
+            (6, true),
+            (7, true),
+            (8, true),
+            (9, true),
+            (9, true),
+            (9, true),
+            (9, true),
+            (9, true),
+            (9, true),
+        ];
+
+        let mut recovery = SparseRecovery::<FieldHasher>::init(10, 3, 0.01);
+
+        stream.into_iter().for_each(|token| recovery.feed(token));
+
+        println!("{:?}", recovery.query());
     }
 }

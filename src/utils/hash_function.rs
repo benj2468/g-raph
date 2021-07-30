@@ -2,7 +2,7 @@
 
 use num_bigint::BigUint;
 use num_primes::Generator;
-use num_traits::ToPrimitive;
+use num_traits::{ToPrimitive, Zero};
 use std::{fmt::Debug, time::Instant};
 
 use crate::printdur;
@@ -66,10 +66,10 @@ impl HashFunction for FieldHasher {
         let range = (l as f64).log2().ceil() as u64;
 
         Self {
-            domain,
             a,
             b,
             order: n.into(),
+            domain,
             range,
         }
     }

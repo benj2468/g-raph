@@ -5,7 +5,10 @@ use std::{
 
 use rand::Rng;
 
-use crate::graph::{streaming::sparse_recovery::s_sparse::SparseRecovery, Edge, Graph};
+use crate::graph::{
+    static_a::coloring::Color, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
+    GraphWithRecaller, Graphed,
+};
 
 use crate::utils::hash_function::FieldHasher;
 
@@ -102,9 +105,10 @@ impl StreamColoring {
             ..
         } = self;
 
-        let mut monochromatic_graphs: HashMap<(u32, u32), Graph<u32, ()>> = (0..palette_size)
+        let mut monochromatic_graphs: HashMap<(u32, u32), GraphWithRecaller<u32, ()>> = (0
+            ..palette_size)
             .into_iter()
-            .map(|color| ((0, color), Graph::new(HashMap::new())))
+            .map(|color| ((0, color), Graphed::new(Default::default())))
             .collect();
 
         if let Some(sparse_recovery_output) = sparse_recovery.query() {

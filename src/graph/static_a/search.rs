@@ -1,6 +1,6 @@
 //! Different Graph Search Algorithms
 
-use crate::graph::{edge::EdgeDestination, Graph};
+use crate::graph::{edge::EdgeDestination, Graph, Graphed};
 use std::{
     collections::{HashMap, LinkedList},
     fmt::Debug,
@@ -24,8 +24,19 @@ pub trait Searcher<T, W>: Default + Clone {
     fn visit(&mut self, source: &T, node: &EdgeDestination<T, W>);
 }
 
-impl<T, W> Graph<T, W>
+/// Search functions on a graph
+pub trait Search<T, W> {
+    fn breadth_first<S>(&self, searcher: S) -> S
+    where
+        S: Searcher<T, W>;
+    fn depth_first<S>(&self, searcher: S) -> S
+    where
+        S: Searcher<T, W>;
+}
+
+impl<G, T, W> Search<T, W> for G
 where
+    G: Graphed<T, W>,
     T: Hash + Eq + PartialOrd + Clone + Debug,
     W: Hash + Eq + Clone + Default,
 {
@@ -34,8 +45,11 @@ where
     where
         S: Searcher<T, W>,
     {
-        let mut visited: HashMap<&T, bool> =
-            self.adjacency_list.keys().map(|key| (key, false)).collect();
+        let mut visited: HashMap<&T, bool> = self
+            .vertices()
+            .into_iter()
+            .map(|key| (key, false))
+            .collect();
 
         let mut to_visit = LinkedList::<&T>::new();
 
@@ -49,7 +63,7 @@ where
             if let Some(current) = to_visit.pop_front() {
                 if let Some(neighbors) = self.get_neighbors(&current) {
                     for neighbor in neighbors {
-                        let destination = neighbor.destination();
+                        let destination = &neighbor.destination;
                         searcher.visit(current, neighbor);
                         if !visited.get(destination).unwrap() {
                             to_visit.push_back(destination);
@@ -73,8 +87,11 @@ where
     where
         S: Searcher<T, W>,
     {
-        let mut visited: HashMap<&T, bool> =
-            self.adjacency_list.keys().map(|key| (key, false)).collect();
+        let mut visited: HashMap<&T, bool> = self
+            .vertices()
+            .into_iter()
+            .map(|key| (key, false))
+            .collect();
 
         let mut to_visit = LinkedList::<&T>::new();
 
@@ -87,7 +104,7 @@ where
             if let Some(current) = to_visit.pop_back() {
                 if let Some(neighbors) = self.get_neighbors(&current) {
                     for neighbor in neighbors {
-                        let destination = neighbor.destination();
+                        let destination = &neighbor.destination;
                         searcher.visit(current, neighbor);
                         if !visited.get(destination).unwrap() {
                             to_visit.push_back(destination);
@@ -130,11 +147,11 @@ where
             .map(|(_, w)| w.clone())
             .unwrap_or_default();
 
-        let next_label = node.weight().clone();
-        let destination = node.destination();
+        let next_label = node.label.clone();
+        let destination = &node.destination;
 
         let next_weight = current + next_label;
-        if let Some((vertex, score)) = self.tracking.get_mut(destination) {
+        if let Some((vertex, score)) = self.tracking.get_mut(&destination) {
             if next_weight < *score {
                 *vertex = source.clone();
                 *score = next_weight
