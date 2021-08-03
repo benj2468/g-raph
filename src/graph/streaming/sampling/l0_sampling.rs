@@ -12,14 +12,14 @@ pub trait L0Sampling {
     ///
     /// In l-0-sampling we sample each coordinate with probability 1/||f||_0,
     /// meaning uniformly from the set of all distinct coordinates
-    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i32)>;
+    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i64)>;
 }
 
 impl<T> L0Sampling for T
 where
     T: core::iter::Iterator<Item = (u64, bool)> + Sized,
 {
-    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i32)> {
+    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i64)> {
         // Initialization
         let mut data_structure = vec![];
         let order = (n as f32).log2() * (1_f32 / delta).log2();

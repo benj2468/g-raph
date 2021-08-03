@@ -25,6 +25,7 @@ pub trait HashFunction {
     fn init_test() -> Self;
 }
 
+// TODO: We might need to add some sort of bijection here, arbitrary bijection mapping input to x.
 /// A Hash function of the format:
 ///
 /// f(x) = ax + b
@@ -42,8 +43,9 @@ pub trait HashFunction {
 /// Storage:
 /// - a (log(n) bits)
 /// - b (log(n) bits)
-/// - order (n bits)
+/// - order (log(n) bits)
 /// - 64 bits (constant)
+/// Total = O(log(n)) bits
 pub struct FieldHasher {
     a: BigUint,
     b: BigUint,
@@ -96,11 +98,11 @@ impl HashFunction for FieldHasher {
     #[cfg(test)]
     fn init_test() -> Self {
         Self {
-            domain: 3,
-            a: 5u32.into(),
-            b: 2u32.into(),
-            order: 3u32.into(),
-            range: 2,
+            domain: 4,
+            a: 6u32.into(),
+            b: 3u32.into(),
+            order: 8u32.into(),
+            range: 3,
         }
     }
 }
@@ -163,5 +165,27 @@ impl HashFunction for MatrixHasher {
         let b = BigUint::new(vec![3]);
 
         Self { a, b }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn field_hash() {
+        let hasher = FieldHasher::init_test();
+
+        println!("{:?}", hasher.compute(0));
+        println!("{:?}", hasher.compute(1));
+        println!("{:?}", hasher.compute(2));
+        println!("{:?}", hasher.compute(3));
+        println!("{:?}", hasher.compute(4));
+        println!("{:?}", hasher.compute(5));
+        println!("{:?}", hasher.compute(6));
+        println!("{:?}", hasher.compute(7));
+        println!("{:?}", hasher.compute(8));
+        println!("{:?}", hasher.compute(9));
+        println!("{:?}", hasher.compute(10));
     }
 }

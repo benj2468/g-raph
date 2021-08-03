@@ -1,7 +1,7 @@
 //! Relating to all things coloring
 
 use super::super::*;
-use std::collections::HashSet;
+use std::{cmp::max, collections::HashSet};
 
 type Coloring<T> = HashMap<T, usize>;
 
@@ -22,8 +22,11 @@ where
 
         let mut graph = self.clone();
 
-        while let Some(min) = graph.remove_min() {
+        let mut degeneracy = 0_usize;
+        while let Some((min, deg)) = graph.min_degree() {
+            graph.remove_min();
             ordering.push(min);
+            degeneracy = max(degeneracy, deg);
         }
 
         ordering.reverse();

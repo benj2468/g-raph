@@ -3,6 +3,7 @@
 use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet},
+    fmt::Debug,
     hash::Hash,
 };
 
@@ -47,7 +48,7 @@ where
 ///
 /// This graph also holds a PriorityQueue to keep track of vertex degrees.
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GraphWithRecaller<T, W>
 where
     T: Hash + Eq,
@@ -87,8 +88,8 @@ where
 
 impl<T, W> Graphed<T, W> for GraphWithRecaller<T, W>
 where
-    T: Hash + Eq + Clone + PartialOrd,
-    W: Hash + Eq + Clone + Default,
+    T: Debug + Hash + Eq + Clone + PartialOrd,
+    W: Debug + Hash + Eq + Clone + Default,
 {
     /// Runtime: O(nlog(n))
     fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self {
@@ -105,11 +106,12 @@ where
     fn add_edge(&mut self, edge: Edge<T, W>) {
         self.graph.add_edge(edge.clone());
         let (v1, v2) = edge.vertices();
-        self.vertex_heap.push_increase(
+
+        self.vertex_heap.push_decrease(
             v1.clone(),
             Reverse(self.graph.get_neighbors(v1).unwrap().len()),
         );
-        self.vertex_heap.push_increase(
+        self.vertex_heap.push_decrease(
             v2.clone(),
             Reverse(self.graph.get_neighbors(v2).unwrap().len()),
         );
@@ -130,11 +132,13 @@ where
     /// Runtime: O(nlog(n)); where n = number of neighbors
     fn remove_vertex(&mut self, vertex: &T) {
         let Self { graph, vertex_heap } = self;
+
         if let Some(neighbors) = graph.adjacency_list.get(&vertex) {
             neighbors.iter().for_each(|neighbor| {
                 let destination = &neighbor.destination;
-                let current = vertex_heap.get_priority(destination).unwrap().0;
-                vertex_heap.change_priority(destination, Reverse(current - 1));
+                if let Some(current) = vertex_heap.get_priority(destination) {
+                    vertex_heap.change_priority(destination, Reverse(current.0 - 1));
+                }
             })
         }
         self.graph.remove_vertex(&vertex);
@@ -238,3 +242,30 @@ where
 
 pub mod static_a;
 pub mod streaming;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn new_graph() {
+        let mut graph = GraphWithRecaller::<u32, ()>::new(Default::default());
+
+        graph.add_edge(Edge::init(1, 2));
+        graph.add_edge(Edge::init(2, 3));
+        graph.add_edge(Edge::init(1, 3));
+
+        assert_eq!(
+            graph.vertex_heap.get_priority(&1).unwrap(),
+            &Reverse(2_usize)
+        );
+        assert_eq!(
+            graph.vertex_heap.get_priority(&2).unwrap(),
+            &Reverse(2_usize)
+        );
+        assert_eq!(
+            graph.vertex_heap.get_priority(&3).unwrap(),
+            &Reverse(2_usize)
+        );
+    }
+}

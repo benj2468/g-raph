@@ -15,11 +15,13 @@ use rand::Rng;
 use crate::utils::finite_field::{FieldElement, FiniteField};
 
 /// One Sparse Recovery Data Structure. This includes both the Fingerprint values, and the initializing values, including a finite field to person arithmetic within
+///
+/// This stores its data within constant space, not dependent on the input. O(1) bits
 #[derive(Clone)]
 pub struct OneSparseRecovery {
     /// Fingerprint
-    l: i32,
-    z: i32,
+    l: i64,
+    z: i64,
     p: FieldElement,
 
     /// Init values
@@ -47,7 +49,7 @@ impl Debug for OneSparseRecovery {
 pub enum OneSparseRecoveryOutput {
     Zero,
     /// First element is the value, second element is the index
-    VeryLikely(i32, u64),
+    VeryLikely(i64, u64),
     NotOneSparse,
 }
 
@@ -111,7 +113,7 @@ impl OneSparseRecovery {
         let (coordinate, value) = token;
         let value_int = if value { 1 } else { -1 };
         self.l += value_int;
-        self.z += value_int * coordinate as i32;
+        self.z += value_int * coordinate as i64;
 
         let power = self.field.pow(self.r, coordinate);
 
@@ -135,7 +137,7 @@ impl OneSparseRecovery {
         } else {
             let divided = (z as f32) / (l as f32);
             if (divided.round() - divided).abs() > f32::EPSILON
-                || p != field.mul(field.mod_p_i32(l), field.pow(r, divided.round() as u64))
+                || p != field.mul(field.mod_p_i64(l), field.pow(r, divided.round() as u64))
             {
                 OneSparseRecoveryOutput::NotOneSparse
             } else {

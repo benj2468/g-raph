@@ -1,13 +1,19 @@
+//! Coloring
+
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
+    time::Instant,
 };
 
 use rand::Rng;
 
-use crate::graph::{
-    static_a::coloring::Color, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
-    GraphWithRecaller, Graphed,
+use crate::{
+    graph::{
+        static_a::coloring::Color, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
+        GraphWithRecaller, Graphed,
+    },
+    printdur,
 };
 
 use crate::utils::hash_function::FieldHasher;
@@ -18,19 +24,24 @@ type ColorTuple = (u32, u32);
 /// Structure to support coloring a Graph in the streaming setting
 ///
 /// Algorithm for the coloring can be found [here](https://arxiv.org/pdf/1905.00566.pdf)
+///
+/// Total space required = O(|V| +  slog(s/del))
 pub struct StreamColoring {
-    /// Number of Vertices in the Graph
-    #[allow(dead_code)]
-    n: u32,
     /// Since of initial pallet for coloring the graph.
+    ///
+    /// Constant space
     palette_size: u32,
     /// Will start by holding the random color assignment, and ultimately will become the K + 1 coloring
-    colors: Vec<ColorTuple>,
+    ///
+    /// Stores n values, for n vertices, each ColorTuple is a tuple of 32bit integers, thus O(|V|) space
+    colors: HashMap<u32, ColorTuple>,
     /// The sparse recovery and detection data structure
+    ///
+    /// Space = Space required by SparseRecovery where n(edges) = n(vertices) choose 2
     sparse_recovery: SparseRecovery<FieldHasher>,
 }
 
-pub const C: f32 = 0.1;
+pub const C: f32 = 0.01;
 
 fn combination(n: u64, k: u64) -> u64 {
     let numerator: HashSet<u64> = ((k + 1)..(n + 1)).collect();
@@ -49,25 +60,25 @@ impl StreamColoring {
     /// - *n* : Size of the Universe (number of vertices)
     /// - *k* : Guess for degeneracy of graph
     /// - *s* : Sparsity parameter
-    pub fn init(n: u32, k: u64) -> Self {
-        let s = ((C * n as f32) as f64 * (n as f64).log2()).round() as u64;
+    /// - *del* : Error Parameter for SparseRecovery
+    pub fn init(n: u32, k: u64, del: f32) -> Self {
+        let s = (C * n as f32) as f64 * (n as f64).log2();
 
-        let palette_size = (((2 * n as u64 * k) as f32) / (s as f32)).ceil() as u32;
+        let palette_size = (((2 * n as u64 * k) as f64) / s).ceil() as u32;
 
-        let mut colors = vec![];
+        let mut colors = HashMap::<u32, ColorTuple>::new();
         let mut rng = rand::thread_rng();
 
-        for _ in 0..n {
+        for i in 0..n {
             let r = rng.gen_range(0..palette_size) as u32;
-            colors.push((0, r))
+            colors.insert(i, (0, r));
         }
+        let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s.ceil() as u64, del);
 
-        println!("Sparsity parameter: {:?}", s);
-
-        let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s, 0.5);
+        println!("Sparsity Parameter: {:?}", s);
+        println!("Palette Size: {:?}", palette_size);
 
         Self {
-            n,
             palette_size,
             colors,
             sparse_recovery,
@@ -85,7 +96,13 @@ impl StreamColoring {
             ..
         } = self;
 
-        let (color1, color2) = Self::get_edge_colors(&colors, &edge).unwrap();
+        let (color1, color2) = {
+            let (u, v) = edge.vertices();
+            let color1 = colors.get(u).unwrap();
+            let color2 = colors.get(v).unwrap();
+
+            (color1, color2)
+        };
 
         let edge_number = edge.to_d1();
 
@@ -97,13 +114,17 @@ impl StreamColoring {
     /// Query the structure to color the graph
     ///
     /// Returns a list of tuples where the index is the vertex, and the value is the color. Colors are tuples, each unique tuple indicates a unique color.
-    pub fn query(self) -> Option<Vec<ColorTuple>> {
+    pub fn query(self) -> Option<HashMap<u32, ColorTuple>> {
         let Self {
             palette_size,
             mut colors,
             sparse_recovery,
             ..
         } = self;
+
+        println!("Palette Size: {}", palette_size);
+
+        let start = Instant::now();
 
         let mut monochromatic_graphs: HashMap<(u32, u32), GraphWithRecaller<u32, ()>> = (0
             ..palette_size)
@@ -112,9 +133,18 @@ impl StreamColoring {
             .collect();
 
         if let Some(sparse_recovery_output) = sparse_recovery.query() {
+            let start = Instant::now();
             sparse_recovery_output.iter().for_each(|(edge, _)| {
+                let inner = Instant::now();
                 let edge = Edge::from_d1(*edge);
-                let (color1, color2) = Self::get_edge_colors(&colors, &edge).unwrap();
+
+                let (color1, color2) = {
+                    let (u, v) = edge.vertices();
+                    let color1 = colors.get(u).unwrap();
+                    let color2 = colors.get(v).unwrap();
+
+                    (color1, color2)
+                };
 
                 if color1 == color2 {
                     monochromatic_graphs.get_mut(color1).unwrap().add_edge(edge);
@@ -132,31 +162,15 @@ impl StreamColoring {
                         if new_color == 0 {
                             return;
                         };
-                        if let Some(current) = colors.get_mut(vertex as usize) {
-                            *current = (color + 1, new_color as u32);
-                        };
+                        colors.insert(vertex, (color + 1, new_color as u32));
                     });
                 });
 
             Some(colors)
         } else {
+            println!("Not Sparse Enough");
             None
         }
-    }
-
-    /// Fetch the colors of an edge
-    fn get_edge_colors<'a, W>(
-        colors: &'a [ColorTuple],
-        edge: &'a Edge<u32, W>,
-    ) -> Option<(&'a ColorTuple, &'a ColorTuple)>
-    where
-        W: Default,
-    {
-        let (u, v) = edge.vertices();
-        let color1 = colors.get(*u as usize)?;
-        let color2 = colors.get(*v as usize)?;
-
-        Some((color1, color2))
     }
 }
 
@@ -187,20 +201,26 @@ mod test {
         .into_iter()
         .map(|((u, v), c)| (Edge::init(u as u32, v as u32), c))
         .collect()
+        // remaining edges
+        //
+        // (1,3)
+        // (2,4)
+        // (2,5)
+        // (4,5)
     }
 
     #[test]
     fn test_geometric_partition() {
         let stream = test_stream();
 
-        let n: f32 = 100.0;
+        let n: f32 = 10.0;
 
         let mut min_color = INFINITY as usize;
         let mut colorers: Vec<_> = (0..(n.log2().floor() as u32))
             .into_iter()
             .map(|i| {
                 let k = (2 as u32).pow(i) as u64;
-                StreamColoring::init(n as u32, k)
+                StreamColoring::init(n as u32, k, 0.01)
             })
             .collect();
 
@@ -216,5 +236,7 @@ mod test {
                 min_color = min(min_color, count);
             }
         }
+
+        println!("{:?}", min_color);
     }
 }

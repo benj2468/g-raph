@@ -48,7 +48,7 @@ impl FiniteField {
     }
 
     /// Converts an i32 into a field element of the current field
-    pub fn mod_p_i32(&self, val: i32) -> FieldElement {
+    pub fn mod_p_i64(&self, val: i64) -> FieldElement {
         if val >= 0 {
             self.mod_p(val as u64)
         } else {
@@ -102,21 +102,21 @@ mod test {
     }
 
     #[test]
-    fn test_mod_p_i32_positive() {
+    fn test_mod_p_i64_positive() {
         let field = test_field();
         let val = 30;
 
-        let result = field.mod_p_i32(val);
+        let result = field.mod_p_i64(val);
 
         assert_eq!(result, FieldElement(7))
     }
 
     #[test]
-    fn test_mod_p_i32_negative() {
+    fn test_mod_p_i64_negative() {
         let field = test_field();
         let val = -20;
 
-        let result = field.mod_p_i32(val);
+        let result = field.mod_p_i64(val);
 
         assert_eq!(result, 3)
     }
@@ -124,7 +124,7 @@ mod test {
     #[test]
     fn test_power() {
         let field = test_field();
-        let base = field.mod_p_i32(-20);
+        let base = field.mod_p_i64(-20);
 
         let result = field.pow(base, 100);
 
@@ -134,8 +134,8 @@ mod test {
     #[test]
     fn test_multiply() {
         let field = test_field();
-        let v1 = field.mod_p_i32(-20);
-        let v2 = field.mod_p_i32(5);
+        let v1 = field.mod_p_i64(-20);
+        let v2 = field.mod_p_i64(5);
 
         let result = field.mul(v1, v2);
 
@@ -145,8 +145,8 @@ mod test {
     #[test]
     fn test_addition() {
         let field = test_field();
-        let v1 = field.mod_p_i32(-20);
-        let v2 = field.mod_p_i32(5);
+        let v1 = field.mod_p_i64(-20);
+        let v2 = field.mod_p_i64(5);
 
         let result = field.add(v1, v2);
 
@@ -156,7 +156,7 @@ mod test {
     #[test]
     fn test_negate_neg() {
         let field = test_field();
-        let v1 = field.mod_p_i32(-20);
+        let v1 = field.mod_p_i64(-20);
 
         let result = field.neg(v1);
 
@@ -166,7 +166,7 @@ mod test {
     #[test]
     fn test_negate_pos() {
         let field = test_field();
-        let v1 = field.mod_p_i32(20);
+        let v1 = field.mod_p_i64(20);
 
         let result = field.neg(v1);
 

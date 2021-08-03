@@ -1,5 +1,6 @@
 //! Supporting Edge Definitions
 
+use roots::find_roots_quadratic;
 use std::fmt::Debug;
 
 /// Undirected Edge
@@ -69,22 +70,21 @@ where
     ///
     /// Assumes default weight
     pub fn from_d1(d1: u64) -> Self {
-        let (mut min, mut max): (u32, u32) = (0, 0);
-        loop {
-            if min == max {
-                max += 1;
-                min = 0;
-            } else if Self::formula(&min, &max) == d1 {
-                break;
-            } else {
-                min += 1;
+        let roots = find_roots_quadratic(0.5, -0.5, -(d1 as f64));
+        match roots {
+            roots::Roots::Two([_, root]) => {
+                let max = (root / 1.0) as u64;
+                let min = d1 - ((max * (max - 1)) / 2);
+                Self {
+                    v1: min as u32,
+                    v2: max as u32,
+                    label: W::default(),
+                }
             }
-        }
-
-        Self {
-            v1: min as u32,
-            v2: max as u32,
-            label: W::default(),
+            _ => panic!(
+                "The quadratic didn't have two roots, while it should have {:?}",
+                roots
+            ),
         }
     }
 
@@ -109,29 +109,22 @@ where
         if *max == 0 {
             return 0;
         }
-        *max as u64 * ((*max as u64) - 1) / 2 + *min as u64
+        (*max as u64 * ((*max as u64) - 1) / 2) + *min as u64
     }
 }
 
 #[cfg(test)]
 mod test {
+
     use super::*;
 
     #[test]
     fn from_d1() {
-        let edge = Edge::<u32, ()> {
-            v1: 4,
-            v2: 5,
-            label: (),
-        };
-
-        let d1 = edge.to_d1();
-
-        assert_eq!(d1, 14);
-
-        let edge = Edge::<u32, ()>::from_d1(14);
-
-        assert_eq!(edge.vertices_ord(), (&4, &5));
+        for i in 0..100 {
+            let edge = Edge::<u32, ()>::from_d1(i);
+            let d1 = edge.to_d1();
+            assert_eq!(i, d1);
+        }
     }
 }
 

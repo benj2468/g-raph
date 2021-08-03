@@ -8,13 +8,20 @@ use std::collections::HashMap;
 /// S-Sparse Recovery Data Structure
 ///
 /// Algorithm for recovery and detection is based off of [Algorithm 15](https://www.cs.dartmouth.edu/~ac/Teach/CS35-Spring20/Notes/lecnotes.pdf)
+///
+/// Storage: O(tlog(t) + tlog(n))
 #[derive(Clone)]
 pub struct SparseRecovery<F: HashFunction> {
     /// Sparsity Parameter
+    ///
+    /// Constant Space
     s: u64,
     /// The Sparse Recovery Data Structures
+    ///
+    /// Stores O(2st) = O(slog(s/del))
     structures: Vec<Vec<OneSparseRecovery>>,
     /// Hash Functions for hashing to the Sparse recovery systems
+    /// Store O(t * HF bits)
     functions: Vec<F>,
 }
 
@@ -87,7 +94,7 @@ where
     /// The HashMap contains a mapping from indices which are part of the recovery to the values they contained.
     ///
     /// If the stream was not s-sparse, or if one of the one-sparse recovery systems got an answer wrong, then we return `None`.
-    pub fn query(self) -> Option<HashMap<u64, i32>> {
+    pub fn query(self) -> Option<HashMap<u64, i64>> {
         let mut recovery = HashMap::new();
 
         for row in self.structures {
@@ -120,12 +127,11 @@ where
 mod test {
     use std::collections::HashSet;
 
-    use crate::utils::hash_function::FieldHasher;
+    use crate::{graph::streaming::sparse_recovery::s_sparse, utils::hash_function::FieldHasher};
 
     use super::*;
 
-    #[test]
-    fn is_s_sparse() {
+    fn is_s_sparse() -> bool {
         let stream: Vec<(u64, bool)> = vec![
             (0, true),
             (9, true),
@@ -138,22 +144,27 @@ mod test {
             (9, false),
         ];
 
-        let mut recovery = SparseRecovery::<FieldHasher>::init(10, 1, 0.01);
+        let mut recovery = SparseRecovery::<FieldHasher>::init(10, 3, 0.01);
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 
-        let mut expected: HashSet<(u64, i32)> = HashSet::new();
+        let mut expected: HashSet<(u64, i64)> = HashSet::new();
         expected.insert((0, 1));
         expected.insert((6, 1));
         expected.insert((7, 3));
 
-        let actual: HashSet<(u64, i32)> = recovery.query().unwrap().into_iter().collect();
-
-        assert!(actual.is_subset(&expected));
+        recovery
+            .query()
+            .map(|actual| {
+                actual
+                    .into_iter()
+                    .collect::<HashSet<(u64, i64)>>()
+                    .is_subset(&expected)
+            })
+            .unwrap_or_default()
     }
 
-    #[test]
-    fn not_s_sparse() {
+    fn not_s_sparse() -> Option<HashMap<u64, i64>> {
         let stream: Vec<(u64, bool)> = vec![
             (1, true),
             (2, true),
@@ -175,6 +186,37 @@ mod test {
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 
-        println!("{:?}", recovery.query());
+        recovery.query()
+    }
+
+    #[test]
+    fn not_sparse_probability() {
+        let n = 100;
+
+        let mut incorrect = 0;
+
+        for _ in 0..n {
+            if not_s_sparse().is_some() {
+                incorrect += 1;
+            }
+        }
+
+        println!("Incorrect: {}/{}", incorrect, n);
+    }
+
+    #[test]
+    fn sparse_probability() {
+        let n = 100;
+
+        let mut incorrect = 0;
+
+        for _ in 0..n {
+            if !is_s_sparse() {
+                incorrect += 1;
+            }
+        }
+
+        let probability = incorrect as f32 / n as f32;
+        assert!(probability <= 0.01);
     }
 }
