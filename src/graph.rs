@@ -136,7 +136,7 @@ where
         if let Some(neighbors) = graph.adjacency_list.get(&vertex) {
             neighbors.iter().for_each(|neighbor| {
                 let destination = &neighbor.destination;
-                if let Some(current) = vertex_heap.get_priority(destination) {
+                if let Some(current) = vertex_heap.get_priority(destination).cloned() {
                     vertex_heap.change_priority(destination, Reverse(current.0 - 1));
                 }
             })

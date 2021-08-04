@@ -54,3 +54,33 @@ where
         coloring
     }
 }
+
+#[cfg(test)]
+mod test {
+    use itertools::Itertools;
+    use rand::Rng;
+
+    use super::*;
+
+    use crate::graph::{streaming::coloring::combination, Graphed};
+
+    fn random_graph(n: u32, m: u32) -> impl Graphed<u32, ()> {
+        let mut graph = GraphWithRecaller::new(Default::default());
+        let mut rng = rand::thread_rng();
+        let max_edge = combination(n as u64, 2);
+        for _ in 0..m {
+            let rand_edge = rng.gen_range(0..max_edge + 1);
+            graph.add_edge(Edge::from_d1(rand_edge));
+        }
+        graph
+    }
+
+    #[test]
+    fn color_graph() {
+        let graph = random_graph(100, 300);
+
+        let colors = graph.color_degeneracy().values().unique().count();
+
+        assert!([4, 5].contains(&colors));
+    }
+}

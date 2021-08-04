@@ -16,8 +16,9 @@ macro_rules! big_graph_test {
     ($file_name:expr, $n:expr, $split:expr) => {{
         let file = File::open(format!("./big_graphs/{}", $file_name)).unwrap();
 
+        // I think the first case doesn't really work. Not sure yet
         let mut colorers: Vec<_> = (0..($n.log2().floor() as u32))
-            // let mut colorers: Vec<_> = (5..6)
+            // let mut colorers: Vec<_> = (0..1)
             .into_iter()
             .map(|i| {
                 let k = (2 as u32).pow(i) as u64;
@@ -50,6 +51,7 @@ macro_rules! big_graph_test {
         for colorer in colorers.into_iter() {
             if let Some(coloring) = colorer.query() {
                 let count = coloring.values().unique().count();
+                println!("{:?}", count);
                 if count < min_color {
                     min_color = count
                 }
@@ -67,7 +69,7 @@ macro_rules! big_graph_test {
 #[test]
 #[ignore]
 fn facebook_combined() {
-    let res = big_graph_test!("facebook_combined.txt", 4039_f32, " ");
+    let res = big_graph_test!("facebook_combined.txt", 4_039_f32, " ");
 
     println!("{:?}", res);
 }
@@ -76,6 +78,14 @@ fn facebook_combined() {
 #[ignore]
 fn facebook_artists() {
     let res = big_graph_test!("artist_edges.txt", 50_515_f32, ",");
+
+    println!("{:?}", res);
+}
+
+#[test]
+#[ignore]
+fn youtube() {
+    let res = big_graph_test!("com-youtube.ungraph.txt", 1_134_890_f32, "\t");
 
     println!("{:?}", res);
 }

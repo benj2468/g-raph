@@ -3,7 +3,13 @@
 use num_bigint::BigUint;
 use num_primes::Generator;
 use num_traits::{ToPrimitive, Zero};
-use std::{fmt::Debug, time::Instant};
+use rand::Rng;
+use std::{
+    collections::{hash_map::DefaultHasher, HashMap},
+    fmt::Debug,
+    time::Instant,
+    usize,
+};
 
 use crate::printdur;
 
@@ -11,7 +17,7 @@ use crate::printdur;
 ///
 /// HashFunction the trait provides no guarantee for implementation.
 /// As a result, universality of the functions are not consistent across different implementations.
-pub trait HashFunction {
+pub trait HashFunction: Debug {
     /// Initialize a new hash function. This should
     fn init(n: u64, l: u64) -> Self;
     /// Computes the value of h(x), where h is the current hash function
@@ -50,59 +56,57 @@ pub struct FieldHasher {
     a: BigUint,
     b: BigUint,
     order: BigUint,
-    domain: u64,
-    range: u64,
+    mask: BigUint,
 }
 
 impl Debug for FieldHasher {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Field Hasher - [{}] -> [{}]", self.domain, self.range)
+        write!(f, "Field Hasher - (a = {}, b = {})", self.a, self.b)
     }
 }
 
 impl HashFunction for FieldHasher {
     fn init(n: u64, l: u64) -> Self {
-        let domain = (n as f64).log2().ceil() as u64;
+        let domain = ((n as f64).log2() + 1.0) as u64;
         let a = Generator::new_uint(domain);
         let b = Generator::new_uint(domain);
-        let range = (l as f64).log2().ceil() as u64;
+        let range = ((l as f64).log2()) as u64;
+
+        let mut mask = BigUint::zero();
+        for i in 0..range {
+            mask.set_bit(i, true)
+        }
 
         Self {
             a,
             b,
             order: n.into(),
-            domain,
-            range,
+            mask,
         }
     }
 
     fn compute(&self, x: u64) -> usize {
         let Self {
-            domain,
-            a,
-            b,
-            order,
-            range,
-            ..
+            a, b, order, mask, ..
         } = self;
 
         let x: BigUint = x.into();
 
-        let product = (a * x) % (order - 1_u32);
+        let product = (a * x) % order;
+        let computed = (product + b) % order;
 
-        let computed: BigUint = (product ^ b) % (order - 1_u32);
+        println!("{:?}", mask);
 
-        (computed >> (domain - range)).to_isize().unwrap() as usize
+        (&computed & mask).to_isize().unwrap() as usize
     }
 
     #[cfg(test)]
     fn init_test() -> Self {
         Self {
-            domain: 4,
-            a: 6u32.into(),
-            b: 3u32.into(),
-            order: 8u32.into(),
-            range: 3,
+            a: 838u32.into(),
+            b: 208u32.into(),
+            order: 1024u32.into(),
+            mask: BigUint::new(vec![15]),
         }
     }
 }
@@ -123,6 +127,7 @@ impl HashFunction for FieldHasher {
 /// - b (l bits)
 /// - [l constant]
 #[derive(Debug, Clone)]
+#[deprecated]
 pub struct MatrixHasher {
     a: Vec<BigUint>,
     b: BigUint,
@@ -176,16 +181,13 @@ mod test {
     fn field_hash() {
         let hasher = FieldHasher::init_test();
 
-        println!("{:?}", hasher.compute(0));
-        println!("{:?}", hasher.compute(1));
-        println!("{:?}", hasher.compute(2));
-        println!("{:?}", hasher.compute(3));
-        println!("{:?}", hasher.compute(4));
-        println!("{:?}", hasher.compute(5));
-        println!("{:?}", hasher.compute(6));
-        println!("{:?}", hasher.compute(7));
-        println!("{:?}", hasher.compute(8));
-        println!("{:?}", hasher.compute(9));
-        println!("{:?}", hasher.compute(10));
+        let mut roots = vec![];
+        for i in 0..1024 {
+            let val = hasher.compute(i);
+            if val == 0 {
+                roots.push(i);
+            }
+        }
+        println!("{:?}", roots);
     }
 }

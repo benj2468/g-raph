@@ -1,6 +1,6 @@
 //! Different Graph Search Algorithms
 
-use crate::graph::{edge::EdgeDestination, Graph, Graphed};
+use crate::graph::{edge::EdgeDestination, Graphed};
 use std::{
     collections::{HashMap, LinkedList},
     fmt::Debug,
@@ -188,7 +188,7 @@ mod test {
 
     use super::*;
 
-    use crate::graph::EdgeDestination;
+    use crate::graph::{EdgeDestination, Graph};
     #[test]
     fn test_graph() {
         let mut adj: HashMap<u32, HashSet<EdgeDestination<u32, u32>>> = HashMap::new();

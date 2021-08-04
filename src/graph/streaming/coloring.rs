@@ -3,17 +3,13 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
-    time::Instant,
 };
 
 use rand::Rng;
 
-use crate::{
-    graph::{
-        static_a::coloring::Color, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
-        GraphWithRecaller, Graphed,
-    },
-    printdur,
+use crate::graph::{
+    static_a::coloring::Color, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
+    GraphWithRecaller, Graphed,
 };
 
 use crate::utils::hash_function::FieldHasher;
@@ -39,11 +35,12 @@ pub struct StreamColoring {
     ///
     /// Space = Space required by SparseRecovery where n(edges) = n(vertices) choose 2
     sparse_recovery: SparseRecovery<FieldHasher>,
+    captured: Vec<u64>,
 }
 
 pub const C: f32 = 0.01;
 
-fn combination(n: u64, k: u64) -> u64 {
+pub fn combination(n: u64, k: u64) -> u64 {
     let numerator: HashSet<u64> = ((k + 1)..(n + 1)).collect();
     let denominator: HashSet<u64> = (1..(n - k + 1)).collect();
 
@@ -61,27 +58,31 @@ impl StreamColoring {
     /// - *k* : Guess for degeneracy of graph
     /// - *s* : Sparsity parameter
     /// - *del* : Error Parameter for SparseRecovery
+    //
+    // k can be u32 as well
     pub fn init(n: u32, k: u64, del: f32) -> Self {
+        // How many edges we ever want to collect
         let s = (C * n as f32) as f64 * (n as f64).log2();
-
         let palette_size = (((2 * n as u64 * k) as f64) / s).ceil() as u32;
 
         let mut colors = HashMap::<u32, ColorTuple>::new();
         let mut rng = rand::thread_rng();
 
         for i in 0..n {
-            let r = rng.gen_range(0..palette_size) as u32;
-            colors.insert(i, (0, r));
+            let color = rng.gen_range(0..palette_size) as u32;
+            colors.insert(i, (0, color));
         }
         let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s.ceil() as u64, del);
 
         println!("Sparsity Parameter: {:?}", s);
         println!("Palette Size: {:?}", palette_size);
+        println!("{:?}", sparse_recovery);
 
         Self {
             palette_size,
             colors,
             sparse_recovery,
+            captured: vec![],
         }
     }
 
@@ -104,10 +105,10 @@ impl StreamColoring {
             (color1, color2)
         };
 
-        let edge_number = edge.to_d1();
-
         if color1 == color2 {
+            let edge_number = edge.to_d1();
             sparse_recovery.feed((edge_number, c));
+            self.captured.push(edge_number);
         }
     }
 
@@ -122,9 +123,7 @@ impl StreamColoring {
             ..
         } = self;
 
-        println!("Palette Size: {}", palette_size);
-
-        let start = Instant::now();
+        // println!("Captured edges: {:?}", self.captured);
 
         let mut monochromatic_graphs: HashMap<(u32, u32), GraphWithRecaller<u32, ()>> = (0
             ..palette_size)
@@ -133,9 +132,11 @@ impl StreamColoring {
             .collect();
 
         if let Some(sparse_recovery_output) = sparse_recovery.query() {
-            let start = Instant::now();
+            println!(
+                "Sparse recovery edges retrieved: {}",
+                sparse_recovery_output.values().len()
+            );
             sparse_recovery_output.iter().for_each(|(edge, _)| {
-                let inner = Instant::now();
                 let edge = Edge::from_d1(*edge);
 
                 let (color1, color2) = {
