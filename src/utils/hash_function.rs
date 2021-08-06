@@ -161,11 +161,7 @@ mod test {
 
     use super::*;
 
-    #[test]
-    fn two_universal() {
-        let n: u64 = 10000;
-        let l: u64 = 8;
-
+    fn two_universal(n: u64, l: u64) -> (f32, f32) {
         let mut ones_twos = HashMap::<(usize, usize), f32>::new();
         let mut all = vec![];
 
@@ -192,6 +188,22 @@ mod test {
             / ones_twos.len() as f32)
             .sqrt();
 
-        println!("Avg: {}, Stdv: {}", avg, standard_deviation);
+        return (avg, standard_deviation);
+    }
+
+    #[test]
+    fn precise() {
+        let (avg, std) = two_universal(1024, 64);
+
+        assert!(std.is_zero());
+
+        assert!(avg.eq(&(256_f32)));
+    }
+
+    #[test]
+    fn close() {
+        let (_, std) = two_universal(100, 35);
+
+        assert!(std < 2_f32);
     }
 }
