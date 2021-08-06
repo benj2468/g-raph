@@ -38,7 +38,7 @@ pub struct StreamColoring {
     captured: Vec<u64>,
 }
 
-pub const C: f32 = 0.01;
+pub const C: f32 = 1.0;
 
 pub fn combination(n: u64, k: u64) -> u64 {
     let numerator: HashSet<u64> = ((k + 1)..(n + 1)).collect();

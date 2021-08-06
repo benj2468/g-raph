@@ -28,6 +28,9 @@ pub struct OneSparseRecovery {
     r: FieldElement,
     n: u64,
     field: FiniteField,
+
+    #[cfg(test)]
+    pub stream: Vec<u64>,
 }
 
 impl Debug for OneSparseRecovery {
@@ -81,6 +84,8 @@ impl OneSparseRecovery {
             r,
             n,
             field: FiniteField::new(order),
+            #[cfg(test)]
+            stream: vec![],
         }
     }
 
@@ -99,6 +104,8 @@ impl OneSparseRecovery {
             r,
             n,
             field: FiniteField::new(order),
+            #[cfg(test)]
+            stream: vec![],
         }
     }
 
@@ -116,6 +123,9 @@ impl OneSparseRecovery {
         self.z += value_int * coordinate as i64;
 
         let power = self.field.pow(self.r, coordinate);
+
+        #[cfg(test)]
+        self.stream.push(coordinate);
 
         self.p = if value {
             self.field.add(self.p, power)

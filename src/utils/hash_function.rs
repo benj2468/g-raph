@@ -1,12 +1,13 @@
 //! Supporting randomized Hash Functions
 
-use num_bigint::BigUint;
+use num_bigint::{BigUint, RandBigInt};
 use num_primes::Generator;
 use num_traits::{ToPrimitive, Zero};
-use rand::Rng;
+use rand::{random, thread_rng, Rng};
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     fmt::Debug,
+    os::unix::thread,
     time::Instant,
     usize,
 };
@@ -26,9 +27,6 @@ pub trait HashFunction: Debug {
     fn is_zero(&self, x: u64) -> bool {
         self.compute(x) == 0
     }
-
-    #[cfg(test)]
-    fn init_test() -> Self;
 }
 
 // TODO: We might need to add some sort of bijection here, arbitrary bijection mapping input to x.
@@ -52,62 +50,52 @@ pub trait HashFunction: Debug {
 /// - order (log(n) bits)
 /// - 64 bits (constant)
 /// Total = O(log(n)) bits
+#[derive(Debug)]
 pub struct FieldHasher {
-    a: BigUint,
-    b: BigUint,
-    order: BigUint,
-    mask: BigUint,
+    a: u64,
+    b: u64,
+    n: u64,
+    mask: u64,
 }
 
-impl Debug for FieldHasher {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Field Hasher - (a = {}, b = {})", self.a, self.b)
+#[cfg(test)]
+impl FieldHasher {
+    fn init_a_b(n: u64, a: u64, b: u64, l: u64) -> Self {
+        let mask = {
+            let mut mask = BigUint::zero();
+            for i in 0..(l as f32).log2() as u64 {
+                mask.set_bit(i, true)
+            }
+            mask.to_u64().unwrap()
+        };
+
+        Self { a, b, n, mask }
     }
 }
 
 impl HashFunction for FieldHasher {
     fn init(n: u64, l: u64) -> Self {
-        let domain = ((n as f64).log2() + 1.0) as u64;
-        let a = Generator::new_uint(domain);
-        let b = Generator::new_uint(domain);
-        let range = ((l as f64).log2()) as u64;
+        let mut rng = thread_rng();
+        let a = rng.gen_range(0..n);
+        let b = rng.gen_range(0..n);
 
-        let mut mask = BigUint::zero();
-        for i in 0..range {
-            mask.set_bit(i, true)
-        }
+        let mask = {
+            let mut mask = BigUint::zero();
+            for i in 0..(l as f32).log2() as u64 {
+                mask.set_bit(i, true)
+            }
+            mask.to_u64().unwrap()
+        };
 
-        Self {
-            a,
-            b,
-            order: n.into(),
-            mask,
-        }
+        Self { a, b, n, mask }
     }
 
     fn compute(&self, x: u64) -> usize {
-        let Self {
-            a, b, order, mask, ..
-        } = self;
+        let Self { a, b, mask, n, .. } = self;
 
-        let x: BigUint = x.into();
+        let computed = ((a * x) + b) % n;
 
-        let product = (a * x) % order;
-        let computed = (product + b) % order;
-
-        println!("{:?}", mask);
-
-        (&computed & mask).to_isize().unwrap() as usize
-    }
-
-    #[cfg(test)]
-    fn init_test() -> Self {
-        Self {
-            a: 838u32.into(),
-            b: 208u32.into(),
-            order: 1024u32.into(),
-            mask: BigUint::new(vec![15]),
-        }
+        (computed & mask).to_isize().unwrap() as usize
     }
 }
 
@@ -163,31 +151,47 @@ impl HashFunction for MatrixHasher {
 
         (BigUint::from_radix_be(&a, 2).unwrap() ^ &self.b).count_ones() as usize
     }
-
-    #[cfg(test)]
-    fn init_test() -> Self {
-        let a = vec![BigUint::new(vec![1]), BigUint::new(vec![7])];
-        let b = BigUint::new(vec![3]);
-
-        Self { a, b }
-    }
 }
 
 #[cfg(test)]
 mod test {
+
+    use itertools::Itertools;
+    use num_traits::Pow;
+
     use super::*;
 
     #[test]
-    fn field_hash() {
-        let hasher = FieldHasher::init_test();
+    fn two_universal() {
+        let n: u64 = 10000;
+        let l: u64 = 8;
 
-        let mut roots = vec![];
-        for i in 0..1024 {
-            let val = hasher.compute(i);
-            if val == 0 {
-                roots.push(i);
-            }
-        }
-        println!("{:?}", roots);
+        let mut ones_twos = HashMap::<(usize, usize), f32>::new();
+        let mut all = vec![];
+
+        (0..n)
+            .into_iter()
+            .cartesian_product((0..n).into_iter())
+            .into_iter()
+            .for_each(|(a, b)| {
+                let hasher = FieldHasher::init_a_b(n, a, b, l);
+                let one = hasher.compute(1);
+                let two = hasher.compute(2);
+
+                all.push(l as usize * one + two);
+
+                *ones_twos.entry((one, two)).or_default() += 1.0;
+            });
+
+        let avg: f32 = ones_twos.values().into_iter().sum::<f32>() / ones_twos.len() as f32;
+
+        let standard_deviation = (ones_twos
+            .values()
+            .into_iter()
+            .fold(0_f32, |red, v| red + (*v as f32 - avg).pow(2))
+            / ones_twos.len() as f32)
+            .sqrt();
+
+        println!("Avg: {}, Stdv: {}", avg, standard_deviation);
     }
 }
