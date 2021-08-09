@@ -53,7 +53,8 @@ macro_rules! big_graph_test {
                 let count = coloring.values().unique().count();
                 println!("{:?}", count);
                 if count < min_color {
-                    min_color = count
+                    min_color = count;
+                    break;
                 }
             } else {
                 println!("bad batch?")
@@ -88,6 +89,13 @@ fn youtube() {
     let res = big_graph_test!("com-youtube.ungraph.txt", 1_134_890_f32, "\t");
 
     println!("{:?}", res);
+}
+
+#[test]
+fn ratbrain() {
+    let res = big_graph_test!("ratbrain.txt", 496_f32, " ");
+
+    println!("{:?}", res)
 }
 
 #[test]
