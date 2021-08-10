@@ -1,3 +1,3 @@
-//! A Module dedicated to generation of random graphs across different distributions
+//! Generation Models for Graphs
 
 pub mod uniform;

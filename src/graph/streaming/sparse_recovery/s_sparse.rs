@@ -1,11 +1,11 @@
-//! More Generalized s-Sparse Recovery
+//! Generalized `s`-Sparse Recovery
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
 use crate::utils::hash_function::HashFunction;
 use num_primes::Generator;
 use std::{collections::HashMap, fmt::Debug};
 
-/// S-Sparse Recovery Data Structure
+/// `S`-Sparse Recovery Data Structure
 ///
 /// Algorithm for recovery and detection is based off of [Algorithm 15](https://www.cs.dartmouth.edu/~ac/Teach/CS35-Spring20/Notes/lecnotes.pdf)
 ///
@@ -146,7 +146,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::{cmp::max, collections::HashSet};
+    use std::collections::HashSet;
 
     use rand::prelude::Distribution;
 
@@ -234,26 +234,21 @@ mod test {
         assert!(probability <= 0.01);
     }
 
-    fn test_graph() -> Option<HashMap<u64, i64>> {
-        let distribution = UniformGraphDistribution::init(500, 200_000);
-        let mut rng = rand::thread_rng();
-        let graph_edges: Vec<_> = distribution.sample(&mut rng);
-        let mut recovery = SparseRecovery::<FieldHasher>::init(124750, 17932, 0.01);
-
-        graph_edges
-            .into_iter()
-            .for_each(|t| recovery.feed((t.to_d1(), true)));
-
-        recovery.query()
-    }
-
     #[test]
     fn large_vec() {
-        let n = 1;
+        let res = {
+            let distribution = UniformGraphDistribution::init(500, 200_000);
+            let mut rng = rand::thread_rng();
+            let graph_edges: Vec<_> = distribution.sample(&mut rng);
+            let mut recovery = SparseRecovery::<FieldHasher>::init(124750, 17932, 0.01);
 
-        for _ in 0..n {
-            let res = test_graph();
-            assert!(res.is_none())
-        }
+            graph_edges
+                .into_iter()
+                .for_each(|(edge, c)| recovery.feed((edge.to_d1(), c)));
+
+            recovery.query()
+        };
+
+        assert!(res.is_none())
     }
 }

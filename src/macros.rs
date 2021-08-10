@@ -1,3 +1,5 @@
+//! Useful Macros
+
 #[macro_export]
 macro_rules! start_dur {
     () => {

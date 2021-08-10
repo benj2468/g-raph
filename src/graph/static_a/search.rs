@@ -125,6 +125,7 @@ where
     }
 }
 
+/// Structure for maintaining backtracking data in a DFS or BFS search
 #[derive(Default, Clone, Debug)]
 pub struct BackTracking<T, W> {
     pub start: Option<T>,

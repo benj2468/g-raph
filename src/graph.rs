@@ -27,6 +27,7 @@ pub trait Graphed<T, W>: Clone + Default + Sized {
     fn vertices(&self) -> HashSet<&T>;
     fn get_neighbors(&self, vertex: &T) -> Option<&HashSet<EdgeDestination<T, W>>>;
     fn add_edge(&mut self, edge: Edge<T, W>);
+    fn remove_edge(&mut self, edge: Edge<T, W>);
     fn remove_vertex(&mut self, vertex: &T);
     fn min_degree(&self) -> Option<(T, usize)>;
     fn remove_min(&mut self) -> Option<T>;
@@ -112,6 +113,19 @@ where
             Reverse(self.graph.get_neighbors(v1).unwrap().len()),
         );
         self.vertex_heap.push_decrease(
+            v2.clone(),
+            Reverse(self.graph.get_neighbors(v2).unwrap().len()),
+        );
+    }
+
+    fn remove_edge(&mut self, edge: Edge<T, W>) {
+        self.graph.remove_edge(edge.clone());
+        let (v1, v2) = edge.vertices();
+        self.vertex_heap.push_increase(
+            v1.clone(),
+            Reverse(self.graph.get_neighbors(v1).unwrap().len()),
+        );
+        self.vertex_heap.push_increase(
             v2.clone(),
             Reverse(self.graph.get_neighbors(v2).unwrap().len()),
         );
@@ -229,6 +243,19 @@ where
             graph.insert(v.clone(), HashSet::new());
         }
         graph.get_mut(&v).unwrap().insert((&edge.reverse()).into());
+    }
+
+    fn remove_edge(&mut self, edge: Edge<T, W>) {
+        let graph = &mut self.adjacency_list;
+        let (u, v) = edge.vertices();
+
+        graph
+            .entry(u.clone())
+            .and_modify(|set| set.retain(|dest| dest.destination != *v));
+
+        graph
+            .entry(v.clone())
+            .and_modify(|set| set.retain(|dest| dest.destination != *u));
     }
 
     /// Runtime: O(n^2)

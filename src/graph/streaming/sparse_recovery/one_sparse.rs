@@ -1,12 +1,4 @@
 //! One Sparse Recovery
-
-/// Sparse Recovery
-///
-/// This File is a WIP
-///
-/// Current includes:
-///
-/// 1. One Sparse Recovery: A One Sparse Recover Data Structure to recover from a stream of fead tokens
 use std::fmt::Debug;
 
 use num_primes::Generator;
@@ -14,7 +6,9 @@ use rand::Rng;
 
 use crate::utils::finite_field::{FieldElement, FiniteField};
 
-/// One Sparse Recovery Data Structure. This includes both the Fingerprint values, and the initializing values, including a finite field to person arithmetic within
+/// One Sparse Recovery Data Structure.
+///
+/// This includes both the Fingerprint values, and the initializing values, including a finite field to person arithmetic within
 ///
 /// This stores its data within constant space, not dependent on the input. O(1) bits
 #[derive(Clone)]

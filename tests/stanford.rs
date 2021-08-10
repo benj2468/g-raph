@@ -26,9 +26,9 @@ macro_rules! graph_test {
 
         let mut whole_graph = GraphWithRecaller::new(Default::default());
 
-        for edge in $edges {
+        for (edge, c) in $edges {
             for colorer in &mut colorers {
-                colorer.feed(edge, true)
+                colorer.feed(edge, c)
             }
             whole_graph.add_edge(edge);
         }
@@ -61,7 +61,7 @@ macro_rules! graph_file_test {
                 let v1: u32 = split.next().unwrap().parse().unwrap();
                 let v2: u32 = split.next().unwrap().parse().unwrap();
 
-                Edge::<u32, ()>::init(v1, v2)
+                (Edge::<u32, ()>::init(v1, v2), true)
             });
 
         graph_test!($n, edges)
@@ -93,6 +93,7 @@ fn youtube() {
 }
 
 #[test]
+#[ignore]
 fn ratbrain() {
     let res = graph_file_test!("ratbrain.txt", 496_f32, " ");
 
@@ -100,6 +101,7 @@ fn ratbrain() {
 }
 
 #[test]
+#[ignore]
 fn fake_test() {
     let res = graph_file_test!("fake.txt", 10_f32, " ");
 
@@ -107,6 +109,7 @@ fn fake_test() {
 }
 
 #[test]
+#[ignore]
 fn sampled_graph() {
     let n = 500;
     let distribution = UniformGraphDistribution::init(n, 200_000);
