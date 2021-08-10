@@ -5,6 +5,7 @@ use rand::prelude::IteratorRandom;
 
 use crate::graph::{Edge, Graphed};
 
+/// Uniform Distribution Generator
 pub struct UniformGraphDistribution {
     /// The number of nodes in our graph
     nodes: u32,

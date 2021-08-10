@@ -71,52 +71,53 @@ macro_rules! graph_file_test {
 #[test]
 #[ignore]
 fn facebook_combined() {
-    let res = graph_file_test!("facebook_combined.txt", 4_039_f32, " ");
+    let (actual, stream_res) = graph_file_test!("facebook_combined.txt", 4_039_f32, " ");
 
-    println!("{:?}", res);
+    assert!(actual <= stream_res)
 }
 
 #[test]
 #[ignore]
 fn facebook_artists() {
-    let res = graph_file_test!("artist_edges.txt", 50_515_f32, ",");
+    let (actual, stream_res) = graph_file_test!("artist_edges.txt", 50_515_f32, ",");
 
-    println!("{:?}", res);
+    assert!(actual <= stream_res)
 }
 
 #[test]
 #[ignore]
 fn youtube() {
-    let res = graph_file_test!("com-youtube.ungraph.txt", 1_134_890_f32, "\t");
+    let (actual, stream_res) = graph_file_test!("com-youtube.ungraph.txt", 1_134_890_f32, "\t");
 
-    println!("{:?}", res);
+    assert!(actual <= stream_res)
 }
 
 #[test]
 #[ignore]
 fn ratbrain() {
-    let res = graph_file_test!("ratbrain.txt", 496_f32, " ");
+    let (actual, stream_res) = graph_file_test!("ratbrain.txt", 496_f32, " ");
 
-    println!("{:?}", res)
+    assert!((actual as isize - stream_res as isize).abs() <= 1)
 }
 
 #[test]
 #[ignore]
 fn fake_test() {
-    let res = graph_file_test!("fake.txt", 10_f32, " ");
+    let (actual, stream_res) = graph_file_test!("fake.txt", 10_f32, " ");
 
-    println!("{:?}", res)
+    assert!(actual <= stream_res)
 }
 
 #[test]
 #[ignore]
 fn sampled_graph() {
     let n = 500;
-    let distribution = UniformGraphDistribution::init(n, 200_000);
+    let m = 200_000;
+    let distribution = UniformGraphDistribution::init(n, m);
     let mut rng = rand::thread_rng();
     let graph_edges: Vec<_> = distribution.sample(&mut rng);
 
-    let (actual, min_color) = graph_test!(n as f32, graph_edges);
+    let (actual, stream_res) = graph_test!(n as f32, graph_edges);
 
-    assert!(actual <= min_color);
+    assert!(actual <= stream_res);
 }
