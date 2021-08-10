@@ -28,15 +28,6 @@ where
         }
     }
 
-    /// Creates a directed edge between two vertices
-    pub fn init_directed(v1: T, v2: T) -> Self {
-        Self {
-            v1,
-            v2,
-            label: W::default(),
-        }
-    }
-
     /// Updates the label, or places in a label if none exists
     pub fn update_label(&mut self, new: W) {
         self.label = new;

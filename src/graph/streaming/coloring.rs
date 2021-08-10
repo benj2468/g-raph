@@ -1,11 +1,8 @@
 //! Coloring
 
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-};
-
+use num_integer::binomial;
 use rand::Rng;
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::graph::{
     static_a::coloring::Color, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
@@ -35,21 +32,11 @@ pub struct StreamColoring {
     ///
     /// Space = Space required by SparseRecovery where n(edges) = n(vertices) choose 2
     sparse_recovery: SparseRecovery<FieldHasher>,
+    #[cfg(test)]
     captured: Vec<u64>,
 }
 
-pub const C: f32 = 1.0;
-
-pub fn combination(n: u64, k: u64) -> u64 {
-    let numerator: HashSet<u64> = ((k + 1)..(n + 1)).collect();
-    let denominator: HashSet<u64> = (1..(n - k + 1)).collect();
-
-    let num: u64 = numerator.difference(&denominator).product();
-
-    let den: u64 = denominator.difference(&numerator).product();
-
-    num / den
-}
+pub const C: f32 = 4.0;
 
 impl StreamColoring {
     /// Initialize a new StreamColoring Instance
@@ -72,16 +59,13 @@ impl StreamColoring {
             let color = rng.gen_range(0..palette_size) as u32;
             colors.insert(i, (0, color));
         }
-        let sparse_recovery = SparseRecovery::init(combination(n as u64, 2), s.ceil() as u64, del);
-
-        println!("Sparsity Parameter: {:?}", s);
-        println!("Palette Size: {:?}", palette_size);
-        println!("{:?}", sparse_recovery);
+        let sparse_recovery = SparseRecovery::init(binomial(n as u64, 2), s.ceil() as u64, del);
 
         Self {
             palette_size,
             colors,
             sparse_recovery,
+            #[cfg(test)]
             captured: vec![],
         }
     }
@@ -108,6 +92,7 @@ impl StreamColoring {
         if color1 == color2 {
             let edge_number = edge.to_d1();
             sparse_recovery.feed((edge_number, c));
+            #[cfg(test)]
             self.captured.push(edge_number);
         }
     }
@@ -123,8 +108,6 @@ impl StreamColoring {
             ..
         } = self;
 
-        // println!("Captured edges: {:?}", self.captured);
-
         let mut monochromatic_graphs: HashMap<(u32, u32), GraphWithRecaller<u32, ()>> = (0
             ..palette_size)
             .into_iter()
@@ -132,10 +115,6 @@ impl StreamColoring {
             .collect();
 
         if let Some(sparse_recovery_output) = sparse_recovery.query() {
-            println!(
-                "Sparse recovery edges retrieved: {}",
-                sparse_recovery_output.values().len()
-            );
             sparse_recovery_output.iter().for_each(|(edge, _)| {
                 let edge = Edge::from_d1(*edge);
 
@@ -169,7 +148,6 @@ impl StreamColoring {
 
             Some(colors)
         } else {
-            println!("Not Sparse Enough");
             None
         }
     }
@@ -185,7 +163,7 @@ mod test {
 
     #[test]
     fn comb() {
-        assert_eq!(combination(100, 2), 4950);
+        assert_eq!(binomial(100, 2), 4950);
     }
 
     fn test_stream() -> Vec<(Edge<u32, ()>, bool)> {

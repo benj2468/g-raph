@@ -22,7 +22,7 @@ pub use edge::*;
 /// W = Set of possible weights
 ///
 /// In our implementation, a graph is stored as an adjacency list form, or a HashMap of vertices to a set of EdgeDestinations. A graph is generic over the type of vertex, `T`, and the type of the edges weight: `W`
-pub trait Graphed<T, W>: Clone {
+pub trait Graphed<T, W>: Clone + Default + Sized {
     fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self;
     fn vertices(&self) -> HashSet<&T>;
     fn get_neighbors(&self, vertex: &T) -> Option<&HashSet<EdgeDestination<T, W>>>;
@@ -36,7 +36,7 @@ pub trait Graphed<T, W>: Clone {
 /// Simple Graph
 ///
 /// Simplest version of a Graph that contains just the Adjacency list, where each destination may or may not have an edge weight associated with it.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Graph<T, W>
 where
     T: Hash + Eq,
@@ -48,7 +48,7 @@ where
 ///
 /// This graph also holds a PriorityQueue to keep track of vertex degrees.
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct GraphWithRecaller<T, W>
 where
     T: Hash + Eq,
@@ -88,7 +88,7 @@ where
 
 impl<T, W> Graphed<T, W> for GraphWithRecaller<T, W>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd,
+    T: Debug + Hash + Eq + Clone + PartialOrd + Default,
     W: Debug + Hash + Eq + Clone + Default,
 {
     /// Runtime: O(nlog(n))
@@ -157,7 +157,7 @@ where
 
 impl<T, W> Graphed<T, W> for Graph<T, W>
 where
-    T: Hash + Eq + Clone + PartialOrd,
+    T: Hash + Eq + Clone + PartialOrd + Default,
     W: Hash + Eq + Clone + Default,
 {
     /// Runtime: O(1)

@@ -1,18 +1,9 @@
 //! Supporting randomized Hash Functions
 
-use num_bigint::{BigUint, RandBigInt};
-use num_primes::Generator;
+use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
-use rand::{random, thread_rng, Rng};
-use std::{
-    collections::{hash_map::DefaultHasher, HashMap},
-    fmt::Debug,
-    os::unix::thread,
-    time::Instant,
-    usize,
-};
-
-use crate::printdur;
+use rand::{thread_rng, Rng};
+use std::{fmt::Debug, usize};
 
 /// Describes a Hashing Function from n bits to l bits
 ///
@@ -99,62 +90,10 @@ impl HashFunction for FieldHasher {
     }
 }
 
-/// A Hash function of the format:
-///
-/// h(x) = Ax + b
-///
-/// A := {0,1}^{n,l}
-/// b :- {0,1}^l
-///
-/// A and b are initialized uniformly at random upon initializing the function.
-///
-/// This is much much slower to initialize than the FieldHasher
-///
-/// Storage:
-/// - a (l * n bits)
-/// - b (l bits)
-/// - [l constant]
-#[derive(Debug, Clone)]
-#[deprecated]
-pub struct MatrixHasher {
-    a: Vec<BigUint>,
-    b: BigUint,
-}
-
-impl HashFunction for MatrixHasher {
-    fn init(n: u64, l: u64) -> Self {
-        let start = Instant::now();
-        println!("Initializing {:?} n bit numbers", l);
-        let a = (0..l)
-            .into_iter()
-            .map(|_| {
-                let s = Instant::now();
-                let res = Generator::new_uint(n);
-                printdur!("an n bit number", s);
-                res
-            })
-            .collect();
-        let b = Generator::new_uint(l);
-
-        printdur!("Matrix Hasher initialization", start);
-
-        Self { a, b }
-    }
-
-    fn compute(&self, x: u64) -> usize {
-        let x: BigUint = x.into();
-        let a: Vec<u8> = self
-            .a
-            .iter()
-            .map(|a| ((a & &x).count_ones() % 2) as u8)
-            .collect();
-
-        (BigUint::from_radix_be(&a, 2).unwrap() ^ &self.b).count_ones() as usize
-    }
-}
-
 #[cfg(test)]
 mod test {
+
+    use std::collections::HashMap;
 
     use itertools::Itertools;
     use num_traits::Pow;
