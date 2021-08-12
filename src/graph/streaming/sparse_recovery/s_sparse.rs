@@ -3,6 +3,7 @@
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
 use crate::utils::hash_function::HashFunction;
 use num_primes::Generator;
+use primes::{PrimeSet, Sieve};
 use std::{collections::HashMap, fmt::Debug};
 
 /// `S`-Sparse Recovery Data Structure
@@ -56,19 +57,25 @@ where
                 })
         };
 
-        let s = s.next_power_of_two();
+        let mut pset = Sieve::new();
+        let (_, n_prime) = pset.find(n);
+
+        let s_pow = (2 * s).next_power_of_two();
 
         let structures = (0..t)
             .into_iter()
             .map(|_| {
-                (0..(2 * s))
+                (0..s_pow)
                     .into_iter()
                     .map(|_| OneSparseRecovery::init_with_order(n, order))
                     .collect()
             })
             .collect();
 
-        let functions = (0..t).into_iter().map(|_| F::init(n, 2 * s)).collect();
+        let functions = (0..t)
+            .into_iter()
+            .map(|_| F::init(n_prime, s_pow))
+            .collect();
 
         Self {
             s,
@@ -116,7 +123,7 @@ where
 
         for (_, row) in self.structures.into_iter().enumerate() {
             for (_, cell) in row.into_iter().enumerate() {
-                let res = cell.clone().query();
+                let res = cell.query();
                 match res {
                     OneSparseRecoveryOutput::VeryLikely(lambda, i) => {
                         if recovery
@@ -190,7 +197,7 @@ mod test {
     }
 
     fn tiny_not_sparse() -> Option<HashMap<u64, i64>> {
-        let stream: Vec<u64> = vec![1, 2, 3, 4, 5, 6, 7, 8, 3, 5, 4, 6, 7, 3, 2, 5, 7, 5];
+        let stream: Vec<u64> = (0..40_000).into_iter().map(|i| i % 10).collect();
 
         let mut recovery = SparseRecovery::<FieldHasher>::init(10, 3, 0.01);
 
@@ -220,7 +227,7 @@ mod test {
 
     #[test]
     fn sparse_probability() {
-        let n = 1000;
+        let n = 10;
 
         let mut incorrect = 0;
 
@@ -237,7 +244,7 @@ mod test {
     #[test]
     fn large_vec() {
         let res = {
-            let distribution = UniformGraphDistribution::init(500, 200_000);
+            let distribution = UniformGraphDistribution::init(500, 100_000);
             let mut rng = rand::thread_rng();
             let graph_edges: Vec<_> = distribution.sample(&mut rng);
             let mut recovery = SparseRecovery::<FieldHasher>::init(124750, 17932, 0.01);

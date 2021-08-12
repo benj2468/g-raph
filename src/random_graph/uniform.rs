@@ -32,7 +32,7 @@ impl UniformGraphDistribution {
         Self {
             nodes,
             edges,
-            noise: Default::default(),
+            noise: 0,
             copies: 1,
         }
     }
@@ -85,29 +85,6 @@ impl rand::distributions::Distribution<Vec<(Edge<u32, ()>, bool)>> for UniformGr
             .collect()
     }
 }
-
-/// Generates a Graph in Memory
-impl<T> rand::distributions::Distribution<T> for UniformGraphDistribution
-where
-    T: Graphed<u32, ()> + Sized,
-{
-    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> T {
-        let mut graph = T::default();
-
-        let edges: Vec<(Edge<u32, ()>, bool)> = self.sample(rng);
-
-        edges.into_iter().for_each(|(edge, c)| {
-            if c {
-                graph.add_edge(edge)
-            } else {
-                graph.remove_edge(edge)
-            }
-        });
-
-        graph
-    }
-}
-
 #[cfg(test)]
 mod test {
     use rand::prelude::Distribution;

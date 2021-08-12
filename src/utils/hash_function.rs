@@ -2,6 +2,7 @@
 
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
+use primes::is_prime;
 use rand::{thread_rng, Rng};
 use std::{fmt::Debug, usize};
 
@@ -49,9 +50,14 @@ pub struct FieldHasher {
     mask: u64,
 }
 
-#[cfg(test)]
 impl FieldHasher {
     fn init_a_b(n: u64, a: u64, b: u64, l: u64) -> Self {
+        if !is_prime(n) {
+            panic!("Hash Function domain MUST be prime: {}", n)
+        }
+        if !l.is_power_of_two() {
+            panic!("Hash Function range MUST be a power of two: {}", l)
+        }
         let mask = {
             let mut mask = BigUint::zero();
             for i in 0..(l as f32).log2() as u64 {
@@ -70,23 +76,13 @@ impl HashFunction for FieldHasher {
         let a = rng.gen_range(0..n);
         let b = rng.gen_range(0..n);
 
-        let mask = {
-            let mut mask = BigUint::zero();
-            for i in 0..(l as f32).log2() as u64 {
-                mask.set_bit(i, true)
-            }
-            mask.to_u64().unwrap()
-        };
-
-        Self { a, b, n, mask }
+        Self::init_a_b(n, a, b, l)
     }
 
     fn compute(&self, x: u64) -> usize {
-        let Self { a, b, mask, n, .. } = self;
+        let Self { a, b, n, mask, .. } = self;
 
-        let computed = ((a * x) + b) % n;
-
-        (computed & mask).to_isize().unwrap() as usize
+        ((((a * x) + b) % n) & mask) as usize
     }
 }
 
@@ -97,12 +93,17 @@ mod test {
 
     use itertools::Itertools;
     use num_traits::Pow;
+    use primes::PrimeSet;
 
     use super::*;
 
     fn two_universal(n: u64, l: u64) -> (f32, f32) {
         let mut ones_twos = HashMap::<(usize, usize), f32>::new();
-        let mut all = vec![];
+
+        let mut pset = primes::Sieve::new();
+
+        let (_, n) = pset.find(n);
+        let l = n.next_power_of_two();
 
         (0..n)
             .into_iter()
@@ -112,8 +113,6 @@ mod test {
                 let hasher = FieldHasher::init_a_b(n, a, b, l);
                 let one = hasher.compute(1);
                 let two = hasher.compute(2);
-
-                all.push(l as usize * one + two);
 
                 *ones_twos.entry((one, two)).or_default() += 1.0;
             });
@@ -127,22 +126,14 @@ mod test {
             / ones_twos.len() as f32)
             .sqrt();
 
-        return (avg, standard_deviation);
-    }
-
-    #[test]
-    fn precise() {
-        let (avg, std) = two_universal(1024, 64);
-
-        assert!(std.is_zero());
-
-        assert!(avg.eq(&(256_f32)));
+        (avg, standard_deviation)
     }
 
     #[test]
     fn close() {
-        let (_, std) = two_universal(100, 35);
+        let (_, std) = two_universal(17, 6);
+        println!("{:?}", std);
 
-        assert!(std < 2_f32);
+        assert!(std == 0.0);
     }
 }

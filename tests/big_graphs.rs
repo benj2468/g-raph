@@ -40,10 +40,14 @@ macro_rules! graph_test {
                 if count < min_color {
                     min_color = count;
                 }
+            } else {
+                println!("Bad Batch");
             }
         }
 
         let actual = whole_graph.color_degeneracy().values().unique().count();
+
+        println!("{:?},{:?}", actual, min_color);
 
         (actual, min_color)
     }};

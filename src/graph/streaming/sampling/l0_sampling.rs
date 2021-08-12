@@ -1,4 +1,4 @@
-//! L0 Sampling
+//! L0 Sampling - Broken b/c of hash functions being from [n(prime)] -> [l(=2^k)]
 
 use crate::graph::streaming::sparse_recovery::one_sparse::{
     OneSparseRecovery, OneSparseRecoveryOutput,
@@ -49,70 +49,5 @@ where
         }
 
         None
-    }
-}
-
-#[cfg(test)]
-mod test {
-    // Need testing, not sure what testing looks like thought
-    use rand::seq::SliceRandom;
-    use rand::Rng;
-
-    use super::*;
-
-    fn random_sampling() -> Option<bool> {
-        let mut rng = rand::thread_rng();
-        let n: u64 = 100;
-
-        let survivors: Vec<(u64, bool)> = (0..50)
-            .into_iter()
-            .map(|_| (rng.gen_range(0..n), true))
-            .collect();
-
-        let mut noise: Vec<(u64, bool)> = (0..50)
-            .into_iter()
-            .flat_map(|_| {
-                let v = rng.gen_range(0..n);
-                vec![(v, true), (v, false)]
-            })
-            .collect();
-
-        let mut stream = survivors.clone();
-        stream.append(&mut noise);
-        stream.shuffle(&mut rng);
-
-        let sample = stream.into_iter().l_zero_sampling(n, 0.1);
-
-        if let Some((cord, _)) = sample {
-            Some(survivors.into_iter().any(|(e, _)| e == cord))
-        } else {
-            None
-        }
-    }
-
-    #[test]
-    fn sampling_test() {
-        let mut fails = 0;
-        let mut incorrect = 0;
-
-        let n = 10;
-
-        for _ in 0..n {
-            let result = random_sampling();
-            if let Some(b) = result {
-                if !b {
-                    incorrect += 1;
-                }
-            } else {
-                fails += 1;
-            }
-        }
-
-        println!(
-            "Failed: {:?} / {n},\nIncorrect (due to incorrectness of 1-sparse-recover): {:?} / {n}",
-            fails,
-            incorrect,
-            n = n
-        )
     }
 }
