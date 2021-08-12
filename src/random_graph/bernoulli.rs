@@ -1,4 +1,7 @@
-use rand::{distributions::Bernoulli, Rng};
+use rand::{
+    distributions::{Bernoulli, BernoulliError},
+    Rng,
+};
 
 use crate::graph::Edge;
 
@@ -24,9 +27,9 @@ impl BernoulliGraphDistribution {
     /// When sampling with this, we will get a stream of size ((copies * edges) + 2*noise).
     /// What remains in the stream will be a set of edges sampled with uniform probability.
     /// The noise is simply to make the graph interesting with turnstile streams.
-    pub fn init(nodes: u32, p: f64) -> Result<Self, String> {
+    pub fn init(nodes: u32, p: f64) -> Result<Self, BernoulliError> {
         if !(0.0..=1.0).contains(&p) {
-            return Err("Invalid Probability".into());
+            return Err(BernoulliError::InvalidProbability);
         }
 
         Ok(Self {
@@ -74,7 +77,11 @@ impl rand::distributions::Distribution<Vec<(Edge<u32, ()>, bool)>> for Bernoulli
             })
             .filter_map(|e| {
                 if bern.sample(rng) {
-                    Some((1..rng.gen_range(1..*copies)).into_iter().map(move |_| e))
+                    Some(
+                        (0..rng.gen_range(1..*copies + 1))
+                            .into_iter()
+                            .map(move |_| e),
+                    )
                 } else {
                     None
                 }
