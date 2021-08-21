@@ -4,7 +4,9 @@ use g_raph::{
         edge::Edge, static_a::coloring::Color, streaming::coloring::StreamColoring,
         GraphWithRecaller, Graphed,
     },
-    random_graph::uniform::UniformGraphDistribution,
+    printdur,
+    random_graph::{bernoulli::BernoulliGraphDistribution, uniform::UniformGraphDistribution},
+    start_dur,
 };
 use itertools::Itertools;
 use rand::prelude::Distribution;
@@ -16,38 +18,59 @@ use std::{
 
 macro_rules! graph_test {
     ($n:expr, $edges:expr) => {{
-        let mut colorers: Vec<_> = (0..($n.log2().floor() as u32))
+        println!("-------------- Starting Graph Test --------------");
+
+        let start = start_dur!();
+        let base = StreamColoring::init($n as u32, 1, 0.01);
+        let mut next_colorers: Vec<_> = (1..($n.log2().floor() as u32))
+            // let mut next_colorers: Vec<_> = vec![]
             .into_iter()
-            .map(|i| {
+            .filter_map(|i| {
                 let k = 2_u32.pow(i) as u64;
-                StreamColoring::init($n as u32, k, 0.01)
+                base.new_k($n as u32, k)
             })
             .collect();
 
+        let mut colorers = vec![base];
+        colorers.append(&mut next_colorers);
+
         let mut whole_graph = GraphWithRecaller::new(Default::default());
 
+        printdur!("Initialization", start);
+        println!("--------------------------------------------------");
+        let start = start_dur!();
+
+        let mut len = 0;
         for (edge, c) in $edges {
             for colorer in &mut colorers {
                 colorer.feed(edge, c)
             }
             whole_graph.add_edge(edge);
+            len += 1;
         }
 
+        println!("Stream Length: {}", len);
+        printdur!("Stream", start);
+        println!("--------------------------------------------------");
+
         let mut min_color = INFINITY as usize;
-        for colorer in colorers.into_iter() {
+        for (i, colorer) in colorers.into_iter().enumerate() {
             if let Some(coloring) = colorer.query() {
                 let count = coloring.values().unique().count();
+                println!("Estimate #{} -> {} Coloring", i, count);
                 if count < min_color {
                     min_color = count;
                 }
             } else {
-                println!("Bad Batch");
+                println!("Estimate #{} -> Not Sparse Enough", i);
             }
         }
 
         let actual = whole_graph.color_degeneracy().values().unique().count();
 
-        println!("{:?},{:?}", actual, min_color);
+        println!("--------------------------------------------------");
+        println!("Results: (K + 1): {:?}, Streaming: {:?}", actual, min_color);
+        println!("-------------- Completed Graph Test --------------");
 
         (actual, min_color)
     }};
@@ -101,7 +124,7 @@ fn youtube() {
 fn ratbrain() {
     let (actual, stream_res) = graph_file_test!("ratbrain.txt", 496_f32, " ");
 
-    assert!((actual as isize - stream_res as isize).abs() <= 1)
+    assert!((actual as isize - stream_res as isize).abs() <= 1 || actual <= stream_res)
 }
 
 #[test]
@@ -114,14 +137,11 @@ fn fake_test() {
 
 #[test]
 #[ignore]
-fn sampled_graph() {
-    let n = 500;
-    let m = 200_000;
-    let distribution = UniformGraphDistribution::init(n, m);
-    let mut rng = rand::thread_rng();
-    let graph_edges: Vec<_> = distribution.sample(&mut rng);
+fn erdos_renyi_sample_dense() {
+    let n = 1500;
 
-    let (actual, stream_res) = graph_test!(n as f32, graph_edges);
+    let (actual, stream_res) =
+        graph_test!(n as f32, BernoulliGraphDistribution::init(n, 0.9).unwrap());
 
     assert!(actual <= stream_res);
 }

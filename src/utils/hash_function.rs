@@ -6,6 +6,8 @@ use primes::is_prime;
 use rand::{thread_rng, Rng};
 use std::{fmt::Debug, usize};
 
+use super::finite_field::{FField, PrimePowerFieldElement};
+
 /// Describes a Hashing Function from n bits to l bits
 ///
 /// HashFunction the trait provides no guarantee for implementation.
@@ -19,70 +21,60 @@ pub trait HashFunction: Debug {
     fn is_zero(&self, x: u64) -> bool {
         self.compute(x) == 0
     }
+    /// Random copy
+    fn random_copy(&self) -> Self;
 }
 
-// TODO: We might need to add some sort of bijection here, arbitrary bijection mapping input to x.
-/// A Hash function of the format:
-///
-/// f(x) = ax + b
-/// h(x) = leftmost `l` bits of f(x)
-///
-/// ```latex
-/// a := {0,1}^n
-/// b :- {0,1}^n
-/// ```
-///
-/// Computations are all performed in F_{2^n}.
-///
-/// a and b are initialized uniformly at random upon initializing the function.
-///
-/// Storage:
-/// - a (log(n) bits)
-/// - b (log(n) bits)
-/// - order (log(n) bits)
-/// - 64 bits (constant)
-/// Total = O(log(n)) bits
-#[derive(Debug)]
-pub struct FieldHasher {
-    a: u64,
-    b: u64,
-    n: u64,
+#[derive(Debug, Clone, Copy)]
+pub struct FFieldHasher {
+    field: FField,
+    a: PrimePowerFieldElement,
+    b: PrimePowerFieldElement,
     mask: u64,
 }
 
-impl FieldHasher {
-    fn init_a_b(n: u64, a: u64, b: u64, l: u64) -> Self {
-        if !is_prime(n) {
-            panic!("Hash Function domain MUST be prime: {}", n)
-        }
+impl FFieldHasher {
+    fn init_a_b(
+        field: FField,
+        a: PrimePowerFieldElement,
+        b: PrimePowerFieldElement,
+        l: u64,
+    ) -> Self {
         if !l.is_power_of_two() {
             panic!("Hash Function range MUST be a power of two: {}", l)
         }
-        let mask = {
-            let mut mask = BigUint::zero();
-            for i in 0..(l as f32).log2() as u64 {
-                mask.set_bit(i, true)
-            }
-            mask.to_u64().unwrap()
-        };
+        let mask = l.next_power_of_two() - 1;
 
-        Self { a, b, n, mask }
+        Self { field, a, b, mask }
     }
 }
 
-impl HashFunction for FieldHasher {
+impl HashFunction for FFieldHasher {
     fn init(n: u64, l: u64) -> Self {
         let mut rng = thread_rng();
-        let a = rng.gen_range(0..n);
-        let b = rng.gen_range(0..n);
+        let field = FField::init(n);
 
-        Self::init_a_b(n, a, b, l)
+        Self::init_a_b(field, field.sample(&mut rng), field.sample(&mut rng), l)
     }
 
     fn compute(&self, x: u64) -> usize {
-        let Self { a, b, n, mask, .. } = self;
+        let Self {
+            a, b, field, mask, ..
+        } = self;
 
-        ((((a * x) + b) % n) & mask) as usize
+        let x = field.elem(x);
+
+        (field.add(field.mult(*a, x), *b).value & mask) as usize
+    }
+    fn random_copy(&self) -> Self {
+        let mut rng = thread_rng();
+        let field = self.field.clone();
+        Self {
+            field,
+            a: field.sample(&mut rng),
+            b: field.sample(&mut rng),
+            mask: self.mask.clone(),
+        }
     }
 }
 
@@ -93,47 +85,69 @@ mod test {
 
     use itertools::Itertools;
     use num_traits::Pow;
-    use primes::PrimeSet;
 
     use super::*;
 
-    fn two_universal(n: u64, l: u64) -> (f32, f32) {
-        let mut ones_twos = HashMap::<(usize, usize), f32>::new();
+    fn two_universal(n: u64, l: u64) -> Vec<(f32, f32)> {
+        let n = n.next_power_of_two();
+        let l = l.next_power_of_two();
+        let field = FField::init(n);
 
-        let mut pset = primes::Sieve::new();
-
-        let (_, n) = pset.find(n);
-        let l = n.next_power_of_two();
+        let mut results: Vec<_> = (0..n)
+            .into_iter()
+            .map(|_| HashMap::<(usize, usize), f32>::new())
+            .collect();
 
         (0..n)
             .into_iter()
             .cartesian_product((0..n).into_iter())
             .into_iter()
+            .map(|(a, b)| (field.elem(a), field.elem(b)))
             .for_each(|(a, b)| {
-                let hasher = FieldHasher::init_a_b(n, a, b, l);
-                let one = hasher.compute(1);
-                let two = hasher.compute(2);
+                let hasher = FFieldHasher::init_a_b(field, a, b, l);
+                let one = hasher.compute(0);
+                // let other = hasher.compute(2);
+                // *results
+                //     .get_mut(2 as usize)
+                //     .unwrap()
+                //     .entry((one, other))
+                //     .or_default() += 1.0;
+                for other in 1..n {
+                    let val = hasher.compute(other);
 
-                *ones_twos.entry((one, two)).or_default() += 1.0;
+                    *results
+                        .get_mut(other as usize)
+                        .unwrap()
+                        .entry((one, val))
+                        .or_default() += 1.0;
+                }
             });
 
-        let avg: f32 = ones_twos.values().into_iter().sum::<f32>() / ones_twos.len() as f32;
+        let avgs: Vec<f32> = results
+            .iter()
+            .map(|map| map.values().into_iter().sum::<f32>() / map.len() as f32)
+            .collect();
 
-        let standard_deviation = (ones_twos
-            .values()
-            .into_iter()
-            .fold(0_f32, |red, v| red + (*v as f32 - avg).pow(2))
-            / ones_twos.len() as f32)
-            .sqrt();
+        let standard_deviations: Vec<f32> = results
+            .iter()
+            .enumerate()
+            .map(|(i, map)| {
+                (map.values().into_iter().fold(0_f32, |red, v| {
+                    if i == 1 {
+                        return red;
+                    }
+                    red + (*v as f32 - avgs.get(i).unwrap()).pow(2)
+                }) / map.len() as f32)
+                    .sqrt()
+            })
+            .collect();
 
-        (avg, standard_deviation)
+        avgs.into_iter().zip(standard_deviations).collect()
     }
 
     #[test]
     fn close() {
-        let (_, std) = two_universal(17, 6);
-        println!("{:?}", std);
-
-        assert!(std == 0.0);
+        let res = two_universal(32, 16);
+        println!("{:?}", res);
     }
 }

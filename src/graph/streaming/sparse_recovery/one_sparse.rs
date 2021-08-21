@@ -158,11 +158,6 @@ mod test {
     use super::*;
 
     #[test]
-    fn gen_prime() {
-        assert_eq!(Generator::new_prime(2), BigUint::new(vec![3]));
-    }
-
-    #[test]
     fn true_positive() {
         let stream: Vec<(u64, bool)> = vec![
             (0, true),

@@ -2,18 +2,16 @@
 
 #[macro_export]
 macro_rules! start_dur {
-    () => {
-        // #[cfg(test)]
-        let start = Instant::now();
-    };
+    () => {{
+        std::time::Instant::now()
+    }};
 }
 
 #[macro_export]
 macro_rules! printdur {
     ($label:literal, $start_time:ident) => {
-        // #[cfg(test)]
-        let duration = Instant::now().duration_since($start_time);
-        // #[cfg(test)]
+        let duration = std::time::Instant::now().duration_since($start_time);
         println!("{}: {:?}", $label, duration);
+        let $start_time = start_dur!();
     };
 }

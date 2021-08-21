@@ -9,7 +9,7 @@ use crate::graph::{
     GraphWithRecaller, Graphed,
 };
 
-use crate::utils::hash_function::FieldHasher;
+use crate::utils::hash_function::FFieldHasher;
 
 /// Representation of a Color, we use tuple to differentiate when we re-color the monochromatic components
 type ColorTuple = (u32, u32);
@@ -19,6 +19,7 @@ type ColorTuple = (u32, u32);
 /// Algorithm for the coloring can be found [here](https://arxiv.org/pdf/1905.00566.pdf)
 ///
 /// Total space required = O(|V| +  slog(s/del))
+#[derive(Clone)]
 pub struct StreamColoring {
     /// Since of initial pallet for coloring the graph.
     ///
@@ -31,12 +32,15 @@ pub struct StreamColoring {
     /// The sparse recovery and detection data structure
     ///
     /// Space = Space required by SparseRecovery where n(edges) = n(vertices) choose 2
-    sparse_recovery: SparseRecovery<FieldHasher>,
+    sparse_recovery: SparseRecovery<FFieldHasher>,
     #[cfg(test)]
     captured: Vec<u64>,
 }
 
-pub const C: f32 = 4.0;
+pub fn compute_s(n: u32) -> f64 {
+    const C: f32 = 15.0;
+    (C * n as f32) as f64 * (n as f64).log2()
+}
 
 impl StreamColoring {
     /// Initialize a new StreamColoring Instance
@@ -49,8 +53,10 @@ impl StreamColoring {
     // k can be u32 as well
     pub fn init(n: u32, k: u64, del: f32) -> Self {
         // How many edges we ever want to collect
-        let s = (C * n as f32) as f64 * (n as f64).log2();
+        let s = compute_s(n);
         let palette_size = (((2 * n as u64 * k) as f64) / s).ceil() as u32;
+
+        println!("s = {}; palette_size = {}", s, palette_size);
 
         let mut colors = HashMap::<u32, ColorTuple>::new();
         let mut rng = rand::thread_rng();
@@ -68,6 +74,33 @@ impl StreamColoring {
             #[cfg(test)]
             captured: vec![],
         }
+    }
+
+    pub fn new_k(&self, n: u32, k: u64) -> Option<Self> {
+        let s = compute_s(n);
+
+        let palette_size = (((2 * n as u64 * k) as f64) / s).ceil() as u32;
+        if palette_size == self.palette_size {
+            return None;
+        }
+
+        println!("s = {}; palette_size = {}", s, palette_size);
+
+        let mut colors = HashMap::<u32, ColorTuple>::new();
+        let mut rng = rand::thread_rng();
+
+        for i in 0..n {
+            let color = rng.gen_range(0..palette_size) as u32;
+            colors.insert(i, (0, color));
+        }
+
+        Some(Self {
+            palette_size,
+            colors,
+            sparse_recovery: self.sparse_recovery.clone(),
+            #[cfg(test)]
+            captured: vec![],
+        })
     }
 
     /// Feed a token (and edge insertion of deletion) into the structure

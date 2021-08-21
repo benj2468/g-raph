@@ -1,10 +1,16 @@
 //! Generalized `s`-Sparse Recovery
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
-use crate::utils::hash_function::HashFunction;
+use crate::{
+    printdur, start_dur,
+    utils::{finite_field::find_primitive, hash_function::HashFunction},
+};
 use num_primes::Generator;
 use primes::{PrimeSet, Sieve};
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 
 /// `S`-Sparse Recovery Data Structure
 ///
@@ -57,10 +63,11 @@ where
                 })
         };
 
-        let mut pset = Sieve::new();
-        let (_, n_prime) = pset.find(n);
-
+        let n_pow = n.next_power_of_two();
         let s_pow = (2 * s).next_power_of_two();
+
+        println!("S-Sparse Setup: t: [{}], [{}] -> [{}]", t, n_pow, s_pow);
+        let start = start_dur!();
 
         let structures = (0..t)
             .into_iter()
@@ -72,10 +79,17 @@ where
             })
             .collect();
 
+        printdur!("Structured", start);
+        let start = start_dur!();
+
+        let hash_base = F::init(n_pow, s_pow);
+        printdur!("Hash Base", start);
         let functions = (0..t)
             .into_iter()
-            .map(|_| F::init(n_prime, s_pow))
+            .map(|_| hash_base.random_copy())
             .collect();
+
+        printdur!("Functions", start);
 
         Self {
             s,
@@ -123,6 +137,8 @@ where
 
         for (_, row) in self.structures.into_iter().enumerate() {
             for (_, cell) in row.into_iter().enumerate() {
+                // #[cfg(test)]
+                // println!("Stream: {:?}", cell.clone().stream);
                 let res = cell.query();
                 match res {
                     OneSparseRecoveryOutput::VeryLikely(lambda, i) => {
@@ -155,10 +171,14 @@ where
 mod test {
     use std::collections::HashSet;
 
+    use num_integer::binomial;
+    use num_traits::Pow;
     use rand::prelude::Distribution;
 
     use crate::{
-        random_graph::uniform::UniformGraphDistribution, utils::hash_function::FieldHasher,
+        graph::streaming::coloring::compute_s,
+        random_graph::{bernoulli::BernoulliGraphDistribution, uniform::UniformGraphDistribution},
+        utils::hash_function::FFieldHasher,
     };
 
     use super::*;
@@ -176,7 +196,7 @@ mod test {
             (9, false),
         ];
 
-        let mut recovery = SparseRecovery::<FieldHasher>::init(10, 3, 0.01);
+        let mut recovery = SparseRecovery::<FFieldHasher>::init(10, 3, 0.01);
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 
@@ -196,12 +216,14 @@ mod test {
             .unwrap_or_default()
     }
 
-    fn tiny_not_sparse() -> Option<HashMap<u64, i64>> {
-        let stream: Vec<u64> = (0..40_000).into_iter().map(|i| i % 10).collect();
+    fn large_not_sparse() -> Option<HashMap<u64, i64>> {
+        let del = 2_u64.pow(10);
+        let mut recovery =
+            SparseRecovery::<FFieldHasher>::init(2_097_152 / del, 524_288 / 2 / del, 0.01);
 
-        let mut recovery = SparseRecovery::<FieldHasher>::init(10, 3, 0.01);
-
-        stream
+        println!("{}", 1_012_098 / del);
+        (0..1_012_098 / del)
+            // (0..15)
             .into_iter()
             .for_each(|token| recovery.feed((token, true)));
 
@@ -215,14 +237,16 @@ mod test {
         let mut incorrect = 0;
 
         for _ in 0..n {
-            let res = tiny_not_sparse();
-            if res.is_some() {
+            let res = large_not_sparse();
+            if let Some(res) = res {
+                println!("{}", res.len());
                 incorrect += 1;
             }
         }
 
         let probability = incorrect as f32 / n as f32;
-        assert!(probability <= 0.01);
+        println!("{:?}", probability);
+        // assert!(probability <= 0.01);
     }
 
     #[test]
@@ -244,13 +268,15 @@ mod test {
     #[test]
     fn large_vec() {
         let res = {
-            let distribution = UniformGraphDistribution::init(500, 100_000);
-            let mut rng = rand::thread_rng();
-            let graph_edges: Vec<_> = distribution.sample(&mut rng);
-            let mut recovery = SparseRecovery::<FieldHasher>::init(124750, 17932, 0.01);
+            let n = 100;
+            let mut recovery = SparseRecovery::<FFieldHasher>::init(
+                binomial(n as u64, 2),
+                compute_s(n).ceil() as u64,
+                0.01,
+            );
 
-            graph_edges
-                .into_iter()
+            BernoulliGraphDistribution::init(n, 0.9)
+                .unwrap()
                 .for_each(|(edge, c)| recovery.feed((edge.to_d1(), c)));
 
             recovery.query()
