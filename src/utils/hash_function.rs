@@ -2,7 +2,7 @@
 use rand::thread_rng;
 use std::{fmt::Debug, usize};
 
-use super::finite_field::{FField, PrimePowerFieldElement};
+use super::finite_field::{PowerFiniteField, PrimePowerFieldElement};
 
 /// Describes a Hashing Function from n bits to l bits
 ///
@@ -21,17 +21,17 @@ pub trait HashFunction: Debug {
     fn random_copy(&self) -> Self;
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct FFieldHasher {
-    field: FField,
+#[derive(Debug, Clone)]
+pub struct PowerFiniteFieldHasher {
+    field: PowerFiniteField,
     a: PrimePowerFieldElement,
     b: PrimePowerFieldElement,
     mask: u64,
 }
 
-impl FFieldHasher {
+impl PowerFiniteFieldHasher {
     fn init_a_b(
-        field: FField,
+        field: PowerFiniteField,
         a: PrimePowerFieldElement,
         b: PrimePowerFieldElement,
         l: u64,
@@ -45,10 +45,10 @@ impl FFieldHasher {
     }
 }
 
-impl HashFunction for FFieldHasher {
+impl HashFunction for PowerFiniteFieldHasher {
     fn init(n: u64, l: u64) -> Self {
         let mut rng = thread_rng();
-        let field = FField::init(n);
+        let field = PowerFiniteField::init(n);
 
         Self::init_a_b(field, field.sample(&mut rng), field.sample(&mut rng), l)
     }
@@ -87,7 +87,7 @@ mod test {
     fn two_universal(n: u64, l: u64) -> Vec<(f32, f32)> {
         let n = n.next_power_of_two();
         let l = l.next_power_of_two();
-        let field = FField::init(n);
+        let field = PowerFiniteField::init(n);
 
         let mut results: Vec<_> = (0..n)
             .into_iter()
@@ -100,7 +100,7 @@ mod test {
             .into_iter()
             .map(|(a, b)| (field.elem(a), field.elem(b)))
             .for_each(|(a, b)| {
-                let hasher = FFieldHasher::init_a_b(field, a, b, l);
+                let hasher = PowerFiniteFieldHasher::init_a_b(field, a, b, l);
                 let one = hasher.compute(0);
                 // let other = hasher.compute(2);
                 // *results

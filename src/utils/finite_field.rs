@@ -1,11 +1,16 @@
 //! Supporting Finite Field Arithmetic
 
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 
 use algebraics::{
     mod_int::{Mod2, ModularInteger},
     polynomial::Polynomial,
+    traits::FloorLog2,
 };
+use itertools::Itertools;
 use num_bigint::BigInt;
 use num_bigint::ToBigUint;
 
@@ -13,81 +18,90 @@ fn bits(val: &u64) -> u64 {
     (*val as f64).log2().ceil() as u64
 }
 
-#[derive(Clone)]
-pub struct TwoPowerFieldPoly(Polynomial<ModularInteger<u8, Mod2>>);
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// Wrapper for an element of F_(2^n)[X]
+pub struct TwoPowerFieldPoly(u64);
 
-impl From<u64> for TwoPowerFieldPoly {
-    fn from(input: u64) -> Self {
-        Self(Polynomial::from(
-            BigInt::from(input)
-                .to_radix_le(2)
-                .1
-                .into_iter()
-                .map(|i| ModularInteger::new(i, Mod2 {}))
-                .collect::<Vec<_>>(),
-        ))
-    }
-}
-
-impl From<TwoPowerFieldPoly> for u64 {
-    fn from(input: TwoPowerFieldPoly) -> Self {
-        input.0.iter().enumerate().fold(0, |res, (i, val)| {
+impl From<Polynomial<ModularInteger<u8, Mod2>>> for TwoPowerFieldPoly {
+    fn from(input: Polynomial<ModularInteger<u8, Mod2>>) -> Self {
+        TwoPowerFieldPoly(input.iter().enumerate().fold(0, |res, (i, val)| {
             if *val.value() == 1 {
                 res + (2_u64).pow(i as u32) as u64
             } else {
                 res
             }
-        })
+        }))
     }
 }
 
-pub struct Primitive;
+impl From<TwoPowerFieldPoly> for Polynomial<ModularInteger<u8, Mod2>> {
+    fn from(input: TwoPowerFieldPoly) -> Self {
+        Polynomial::from(
+            BigInt::from(input.0)
+                .to_radix_le(2)
+                .1
+                .into_iter()
+                .map(|i| ModularInteger::new(i, Mod2 {}))
+                .collect::<Vec<_>>(),
+        )
+    }
+}
+
+/// A container for storing data regarding primitive polynomials of varying degrees.
+pub struct Primitive {
+    deg: u8,
+    poly: TwoPowerFieldPoly,
+}
 
 impl Primitive {
-    fn of_degree(deg: &u8) -> TwoPowerFieldPoly {
-        let map: HashMap<u8, TwoPowerFieldPoly> = vec![
-            (2, 7),
-            (3, 9),
-            (4, 25),
-            (5, 37),
-            (6, 73),
-            (7, 185),
-            (8, 355),
-            (9, 623),
-            (10, 1933),
-            (11, 2091),
-            (12, 5875),
-            (13, 14513),
-            (14, 32771),
-            (15, 16707),
-            (16, 66525),
-            (17, 131081),
-            (18, 262207),
-            (19, 524327),
-            (20, 1048585),
-            (21, 2097157),
-            (22, 4194307),
-        ]
-        .into_iter()
-        .map(|(i, j)| (i as u8, j.into()))
-        .collect();
+    fn of_degree(deg: u8) -> Self {
+        let poly = {
+            let mut potential_polys: HashSet<u64> = (2_u64.pow(deg as u32)
+                ..2_u64.pow(deg as u32 + 1))
+                .into_iter()
+                .collect();
 
-        map.get(deg).unwrap().clone()
+            for i in 1..deg / 2 {
+                for j in i..deg / 2 {
+                    if i * j == deg {
+                        let b_polys = 2_u64.pow(j as u32)..2_u64.pow(j as u32 + 1);
+                        let a_polys = 2_u64.pow(i as u32)..2_u64.pow(i as u32 + 1);
+                        a_polys
+                            .into_iter()
+                            .cartesian_product(b_polys)
+                            .map(|(lhs, rhs)| lhs * rhs)
+                            .for_each(|p| {
+                                potential_polys.remove(&p);
+                            })
+                    }
+                }
+            }
+
+            TwoPowerFieldPoly(potential_polys.into_iter().last().unwrap())
+        };
+
+        Self { deg, poly }
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct FField {
+// A finite field of order 2^n
+pub struct PowerFiniteField {
     order: u64,
-    irreducible: u64,
+    irreducible: TwoPowerFieldPoly,
 }
 
-impl FField {
-    pub fn init_with_irreducible(order: u64, irreducible: u64) -> Self {
+impl PowerFiniteField {
+    /// Create a new Power Field, given an order and irreducible
+    pub fn init_with_irreducible(order: u64, irreducible: Primitive) -> Self {
         if !order.is_power_of_two() {
             panic!("Order of FField must be a power of two: {}", order);
         }
-        Self { order, irreducible }
+        assert!(irreducible.deg == order.floor_log2().unwrap() as u8);
+        Self {
+            order,
+            irreducible: irreducible.poly,
+        }
     }
     pub fn init(order: u64) -> Self {
         if !order.is_power_of_two() {
@@ -96,13 +110,13 @@ impl FField {
         let degree = (order as f64).log2() as u8;
         println!("Degree: {:?}", degree);
 
-        Self::init_with_irreducible(order, Primitive::of_degree(&degree).into())
+        Self::init_with_irreducible(order, Primitive::of_degree(degree))
     }
 
-    pub fn reduce(self, value: u64) -> u64 {
+    pub fn reduce(&self, value: u64) -> u64 {
         let mut value = value;
         while bits(&value) > bits(&self.order) {
-            value ^= self.irreducible << (bits(&value) - bits(&self.irreducible))
+            value ^= self.irreducible.0 << (bits(&value) - bits(&self.irreducible.0))
         }
 
         value
@@ -169,7 +183,7 @@ impl Debug for PrimePowerFieldElement {
     }
 }
 
-/// An element of some field.
+/// An element of some prime field.
 ///
 /// Given some FieldElement, we do not know in fact, what field it is from. This computation would happen at runtime, so typing it is not an option.
 /// What we can do, is semantically enforce that values passed into the FiniteField functions are FieldElements, rather than simply u64s.

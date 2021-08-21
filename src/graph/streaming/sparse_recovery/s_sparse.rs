@@ -172,7 +172,7 @@ mod test {
     use crate::{
         graph::streaming::coloring::compute_s,
         random_graph::{bernoulli::BernoulliGraphDistribution, uniform::UniformGraphDistribution},
-        utils::hash_function::FFieldHasher,
+        utils::hash_function::PowerFiniteFieldHasher,
     };
 
     use super::*;
@@ -190,7 +190,7 @@ mod test {
             (9, false),
         ];
 
-        let mut recovery = SparseRecovery::<FFieldHasher>::init(10, 3, 0.01);
+        let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(10, 3, 0.01);
 
         stream.into_iter().for_each(|token| recovery.feed(token));
 
@@ -212,8 +212,11 @@ mod test {
 
     fn large_not_sparse() -> Option<HashMap<u64, i64>> {
         let del = 2_u64.pow(10);
-        let mut recovery =
-            SparseRecovery::<FFieldHasher>::init(2_097_152 / del, 524_288 / 2 / del, 0.01);
+        let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(
+            2_097_152 / del,
+            524_288 / 2 / del,
+            0.01,
+        );
 
         println!("{}", 1_012_098 / del);
         (0..1_012_098 / del)
@@ -263,7 +266,7 @@ mod test {
     fn large_vec() {
         let res = {
             let n = 100;
-            let mut recovery = SparseRecovery::<FFieldHasher>::init(
+            let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(
                 binomial(n as u64, 2),
                 compute_s(n).ceil() as u64,
                 0.01,

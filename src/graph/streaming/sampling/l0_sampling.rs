@@ -4,7 +4,7 @@ use crate::graph::streaming::sparse_recovery::one_sparse::{
     OneSparseRecovery, OneSparseRecoveryOutput,
 };
 
-use crate::utils::hash_function::{FFieldHasher, HashFunction};
+use crate::utils::hash_function::{HashFunction, PowerFiniteFieldHasher};
 
 /// L-0 Sampling Data Str
 pub trait L0Sampling {
@@ -25,7 +25,7 @@ where
         let order = (n as f32).log2() * (1_f32 / delta).log2();
         for l in 0..order.round() as u64 {
             let recover = OneSparseRecovery::init(n);
-            let hash_function = FFieldHasher::init(n, l);
+            let hash_function = PowerFiniteFieldHasher::init(n, l);
 
             data_structure.push((recover, hash_function));
         }

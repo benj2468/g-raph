@@ -65,7 +65,6 @@ name = "g-raph"
 version = "0.1.0"
 dependencies = [
  "algebraics",
- "galois_2p8",
  "itertools",
  "num-bigint 0.2.6",
  "num-integer",
@@ -76,12 +75,6 @@ dependencies = [
  "rand 0.8.4",
  "roots",
 ]
-
-[[package]]
-name = "galois_2p8"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c6114865fc314f51f46ba06fd08e780090c3c542455e9c0b4b8854149261701"
 
 [[package]]
 name = "getrandom"

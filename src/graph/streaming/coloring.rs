@@ -9,7 +9,7 @@ use crate::graph::{
     GraphWithRecaller, Graphed,
 };
 
-use crate::utils::hash_function::FFieldHasher;
+use crate::utils::hash_function::PowerFiniteFieldHasher;
 
 /// Representation of a Color, we use tuple to differentiate when we re-color the monochromatic components
 type ColorTuple = (u32, u32);
@@ -32,7 +32,7 @@ pub struct StreamColoring {
     /// The sparse recovery and detection data structure
     ///
     /// Space = Space required by SparseRecovery where n(edges) = n(vertices) choose 2
-    sparse_recovery: SparseRecovery<FFieldHasher>,
+    sparse_recovery: SparseRecovery<PowerFiniteFieldHasher>,
     #[cfg(test)]
     captured: Vec<u64>,
 }
