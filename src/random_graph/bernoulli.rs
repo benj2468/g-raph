@@ -1,9 +1,8 @@
 use num_integer::binomial;
-use primes::PrimeSet;
+
 use rand::{
     distributions::{Bernoulli, BernoulliError},
     prelude::{Distribution, ThreadRng},
-    Rng,
 };
 
 use crate::graph::Edge;
@@ -104,14 +103,6 @@ impl<T> rand::distributions::Distribution<Vec<(Edge<u32, ()>, bool)>>
             })
             .flatten()
             .collect()
-    }
-}
-
-impl rand::distributions::Distribution<(Edge<u32, ()>, bool)>
-    for BernoulliGraphDistribution<(Edge<u32, ()>, bool)>
-{
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> (Edge<u32, ()>, bool) {
-        todo!()
     }
 }
 

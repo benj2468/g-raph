@@ -3,7 +3,7 @@
 use itertools::Itertools;
 use rand::prelude::IteratorRandom;
 
-use crate::graph::{Edge, Graphed};
+use crate::graph::Edge;
 
 /// Uniform Distribution Generator
 pub struct UniformGraphDistribution {

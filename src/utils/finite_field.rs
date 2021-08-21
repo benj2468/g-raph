@@ -1,25 +1,51 @@
 //! Supporting Finite Field Arithmetic
 
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-};
+use std::{collections::HashMap, fmt::Debug};
 
 use algebraics::{
     mod_int::{Mod2, ModularInteger},
-    polynomial::{Polynomial, PolynomialCoefficient},
+    polynomial::Polynomial,
 };
-use galois_2p8::*;
 use num_bigint::BigInt;
 use num_bigint::ToBigUint;
-use num_traits::{Pow, ToPrimitive};
-use rand::Rng;
+
+fn bits(val: &u64) -> u64 {
+    (*val as f64).log2().ceil() as u64
+}
+
+#[derive(Clone)]
+pub struct TwoPowerFieldPoly(Polynomial<ModularInteger<u8, Mod2>>);
+
+impl From<u64> for TwoPowerFieldPoly {
+    fn from(input: u64) -> Self {
+        Self(Polynomial::from(
+            BigInt::from(input)
+                .to_radix_le(2)
+                .1
+                .into_iter()
+                .map(|i| ModularInteger::new(i, Mod2 {}))
+                .collect::<Vec<_>>(),
+        ))
+    }
+}
+
+impl From<TwoPowerFieldPoly> for u64 {
+    fn from(input: TwoPowerFieldPoly) -> Self {
+        input.0.iter().enumerate().fold(0, |res, (i, val)| {
+            if *val.value() == 1 {
+                res + (2_u64).pow(i as u32) as u64
+            } else {
+                res
+            }
+        })
+    }
+}
 
 pub struct Primitive;
 
 impl Primitive {
-    fn of_degree(deg: &u8) -> Polynomial<ModularInteger<u8, Mod2>> {
-        let map: HashMap<u8, Polynomial<ModularInteger<u8, Mod2>>> = vec![
+    fn of_degree(deg: &u8) -> TwoPowerFieldPoly {
+        let map: HashMap<u8, TwoPowerFieldPoly> = vec![
             (2, 7),
             (3, 9),
             (4, 25),
@@ -43,69 +69,11 @@ impl Primitive {
             (22, 4194307),
         ]
         .into_iter()
-        .map(|(i, j)| (i as u8, bijection(j)))
+        .map(|(i, j)| (i as u8, j.into()))
         .collect();
 
         map.get(deg).unwrap().clone()
     }
-}
-
-fn bits(val: &u64) -> u64 {
-    (*val as f64).log2().ceil() as u64
-}
-
-pub fn find_primitive(degree: &u8) -> u64 {
-    // Randomly generate a bit string of size degree - 1
-    // Check if it is primitive by factoring it
-    // If there is only one factor, then it is primitive.
-    let poly = Primitive::of_degree(degree);
-    // let mut potential_polys: HashSet<Polynomial<ModularInteger<u8, Mod2>>> =
-    //     (2_u32.pow(*degree as u32)..2_u32.pow(*degree as u32 + 1))
-    //         .into_iter()
-    //         .filter(|a| a % 2 == 1)
-    //         .map(bijection)
-    //         .collect();
-
-    // let max: u32 = 2_u32.pow(*degree as u32);
-    // for a in 0..(max / 2) - 1 {
-    //     for b in a..(max / 2) - 1 {
-    //         let a = bijection(2 * a + 1);
-    //         let b = bijection(2 * b + 1);
-    //         potential_polys.remove(&(a * b));
-    //     }
-    // }
-
-    // potential_polys.iter().for_each(|e| println!("{}", e));
-
-    // let poly = potential_polys.into_iter().next().unwrap();
-    poly.iter().enumerate().fold(0, |res, (i, val)| {
-        if *val.value() == 1 {
-            res + (2_u32).pow(i as u32) as u64
-        } else {
-            res
-        }
-    })
-}
-
-fn bijection(x: u32) -> Polynomial<ModularInteger<u8, Mod2>> {
-    Polynomial::from(
-        BigInt::from(x)
-            .to_radix_le(2)
-            .1
-            .into_iter()
-            .map(|i| ModularInteger::new(i, Mod2 {}))
-            .collect::<Vec<_>>(),
-    )
-}
-
-fn reverse(poly: Polynomial<ModularInteger<u8, Mod2>>) -> u32 {
-    poly.iter().enumerate().fold(0, |res, (i, val)| {
-        if *val.value() == 1 {
-            res + (2_u32).pow(i as u32) as u32
-        } else {
-            res
-        }
-    })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -128,7 +96,7 @@ impl FField {
         let degree = (order as f64).log2() as u8;
         println!("Degree: {:?}", degree);
 
-        Self::init_with_irreducible(order, find_primitive(&degree))
+        Self::init_with_irreducible(order, Primitive::of_degree(&degree).into())
     }
 
     pub fn reduce(self, value: u64) -> u64 {
@@ -198,59 +166,6 @@ pub struct PrimePowerFieldElement {
 impl Debug for PrimePowerFieldElement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.value)
-    }
-}
-
-#[cfg(test)]
-mod test {
-
-    use super::*;
-
-    fn helper(s: &str) {
-        let res = s.split(" + ").fold(0, |res, cur| {
-            if cur == "1" {
-                return res + 1_u32;
-            } else {
-                return res + 2_u32.pow(cur.split("^").last().unwrap().parse::<u32>().unwrap());
-            }
-        });
-
-        println!(", {},", res);
-    }
-    #[test]
-    fn parse() {
-        helper("x^15 + x^1 + 1");
-        helper("x^14 + x^8 + x^6 + x^1 + 1");
-    }
-
-    #[test]
-    fn find_primitive_test() {
-        // (2..20)
-        //     .into_iter()
-        //     .for_each(|i| println!("({}, {}),", i, find_primitive(&i)))
-    }
-
-    #[test]
-    fn validity_test() {
-        let field = GeneralField::new(IrreducablePolynomial::Poly84320);
-
-        println!("{}", field.add(2, 10));
-        println!("{}", field.mult(2, 10));
-    }
-
-    #[test]
-    fn add() {
-        let field = FField::init(256);
-        let x = field.elem(2);
-        let y = field.elem(10);
-
-        assert_eq!(field.add(x, y).value, 8);
-        assert_eq!(field.mult(x, y).value, 20);
-    }
-
-    #[test]
-    fn bits_test() {
-        assert_eq!(bits(&6), 3_u64)
     }
 }
 
@@ -347,83 +262,95 @@ impl FiniteField {
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use super::*;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-//     fn test_field() -> FiniteField {
-//         FiniteField::new(23)
-//     }
+    fn test_field() -> FiniteField {
+        FiniteField::new(23)
+    }
 
-//     #[test]
-//     fn test_mod_p_i64_positive() {
-//         let field = test_field();
-//         let val = 30;
+    #[test]
+    fn test_mod_p_i64_positive() {
+        let field = test_field();
+        let val = 30;
 
-//         let result = field.mod_p_i64(val);
+        let result = field.mod_p_i64(val);
 
-//         assert_eq!(result, FieldElement(7))
-//     }
+        assert_eq!(result, FieldElement(7))
+    }
 
-//     #[test]
-//     fn test_mod_p_i64_negative() {
-//         let field = test_field();
-//         let val = -20;
+    #[test]
+    fn test_mod_p_i64_negative() {
+        let field = test_field();
+        let val = -20;
 
-//         let result = field.mod_p_i64(val);
+        let result = field.mod_p_i64(val);
 
-//         assert_eq!(result, 3)
-//     }
+        assert_eq!(result, 3)
+    }
 
-//     #[test]
-//     fn test_power() {
-//         let field = test_field();
-//         let base = field.mod_p_i64(-20);
+    #[test]
+    fn test_power() {
+        let field = test_field();
+        let base = field.mod_p_i64(-20);
 
-//         let result = field.pow(base, 100);
+        let result = field.pow(base, 100);
 
-//         assert_eq!(result, 3)
-//     }
+        assert_eq!(result, 3)
+    }
 
-//     #[test]
-//     fn test_multiply() {
-//         let field = test_field();
-//         let v1 = field.mod_p_i64(-20);
-//         let v2 = field.mod_p_i64(5);
+    #[test]
+    fn test_multiply() {
+        let field = test_field();
+        let v1 = field.mod_p_i64(-20);
+        let v2 = field.mod_p_i64(5);
 
-//         let result = field.mul(v1, v2);
+        let result = field.mul(v1, v2);
 
-//         assert_eq!(result, 15)
-//     }
+        assert_eq!(result, 15)
+    }
 
-//     #[test]
-//     fn test_addition() {
-//         let field = test_field();
-//         let v1 = field.mod_p_i64(-20);
-//         let v2 = field.mod_p_i64(5);
+    #[test]
+    fn test_addition() {
+        let field = test_field();
+        let v1 = field.mod_p_i64(-20);
+        let v2 = field.mod_p_i64(5);
 
-//         let result = field.add(v1, v2);
+        let result = field.add(v1, v2);
 
-//         assert_eq!(result, 8)
-//     }
+        assert_eq!(result, 8)
+    }
 
-//     #[test]
-//     fn test_negate_neg() {
-//         let field = test_field();
-//         let v1 = field.mod_p_i64(-20);
+    #[test]
+    fn test_negate_neg() {
+        let field = test_field();
+        let v1 = field.mod_p_i64(-20);
 
-//         let result = field.neg(v1);
+        let result = field.neg(v1);
 
-//         assert_eq!(result, 20)
-//     }
+        assert_eq!(result, 20)
+    }
 
-//     #[test]
-//     fn test_negate_pos() {
-//         let field = test_field();
-//         let v1 = field.mod_p_i64(20);
+    #[test]
+    fn test_negate_pos() {
+        let field = test_field();
+        let v1 = field.mod_p_i64(20);
 
-//         let result = field.neg(v1);
+        let result = field.neg(v1);
 
-//         assert_eq!(result, 3)
-//     }
-// }
+        assert_eq!(result, 3)
+    }
+
+    fn helper(s: &str) {
+        let res = s.split(" + ").fold(0, |res, cur| {
+            if cur == "1" {
+                res + 1_u32
+            } else {
+                return res + 2_u32.pow(cur.split('^').last().unwrap().parse::<u32>().unwrap());
+            }
+        });
+
+        println!(", {},", res);
+    }
+}

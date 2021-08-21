@@ -12,6 +12,7 @@ macro_rules! printdur {
     ($label:literal, $start_time:ident) => {
         let duration = std::time::Instant::now().duration_since($start_time);
         println!("{}: {:?}", $label, duration);
+        #[allow(unused_variables)]
         let $start_time = start_dur!();
     };
 }

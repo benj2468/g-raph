@@ -1,16 +1,10 @@
 //! Generalized `s`-Sparse Recovery
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
-use crate::{
-    printdur, start_dur,
-    utils::{finite_field::find_primitive, hash_function::HashFunction},
-};
+use crate::{printdur, start_dur, utils::hash_function::HashFunction};
 use num_primes::Generator;
-use primes::{PrimeSet, Sieve};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-};
+
+use std::{collections::HashMap, fmt::Debug};
 
 /// `S`-Sparse Recovery Data Structure
 ///

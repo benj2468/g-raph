@@ -1,9 +1,5 @@
 //! Supporting randomized Hash Functions
-
-use num_bigint::BigUint;
-use num_traits::{ToPrimitive, Zero};
-use primes::is_prime;
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 use std::{fmt::Debug, usize};
 
 use super::finite_field::{FField, PrimePowerFieldElement};
@@ -68,12 +64,12 @@ impl HashFunction for FFieldHasher {
     }
     fn random_copy(&self) -> Self {
         let mut rng = thread_rng();
-        let field = self.field.clone();
+        let field = self.field;
         Self {
             field,
             a: field.sample(&mut rng),
             b: field.sample(&mut rng),
-            mask: self.mask.clone(),
+            mask: self.mask,
         }
     }
 }
