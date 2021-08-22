@@ -1,9 +1,6 @@
 //! Supporting Finite Field Arithmetic
 
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-};
+use std::{collections::HashSet, fmt::Debug};
 
 use algebraics::{
     mod_int::{Mod2, ModularInteger},
@@ -19,7 +16,7 @@ fn bits(val: &u64) -> u64 {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-/// Wrapper for an element of F_(2^n)[X]
+/// Wrapper for an element of F_{2^n}
 pub struct TwoPowerFieldPoly(u64);
 
 impl From<Polynomial<ModularInteger<u8, Mod2>>> for TwoPowerFieldPoly {
@@ -47,6 +44,7 @@ impl From<TwoPowerFieldPoly> for Polynomial<ModularInteger<u8, Mod2>> {
     }
 }
 
+#[derive(Debug)]
 /// A container for storing data regarding primitive polynomials of varying degrees.
 pub struct Primitive {
     deg: u8,
@@ -61,8 +59,8 @@ impl Primitive {
                 .into_iter()
                 .collect();
 
-            for i in 1..deg / 2 {
-                for j in i..deg / 2 {
+            for i in 1..(deg / 2) + 1 {
+                for j in i..(deg / 2) + 1 {
                     if i * j == deg {
                         let b_polys = 2_u64.pow(j as u32)..2_u64.pow(j as u32 + 1);
                         let a_polys = 2_u64.pow(i as u32)..2_u64.pow(i as u32 + 1);
@@ -92,7 +90,9 @@ pub struct PowerFiniteField {
 }
 
 impl PowerFiniteField {
-    /// Create a new Power Field, given an order and irreducible
+    /// Create a new Power Field, given an order and irreducible.
+    ///
+    /// O(1) in time
     pub fn init_with_irreducible(order: u64, irreducible: Primitive) -> Self {
         if !order.is_power_of_two() {
             panic!("Order of FField must be a power of two: {}", order);
@@ -103,6 +103,9 @@ impl PowerFiniteField {
             irreducible: irreducible.poly,
         }
     }
+    /// Create a new Prime Power Field, given an order.
+    ///
+    /// O(log^2(n)) where n is the order.
     pub fn init(order: u64) -> Self {
         if !order.is_power_of_two() {
             panic!("Order of FField must be a power of two: {}", order);
@@ -113,6 +116,7 @@ impl PowerFiniteField {
         Self::init_with_irreducible(order, Primitive::of_degree(degree))
     }
 
+    /// Reduce an element to be within the field, using mod the field's selected irreducible.
     pub fn reduce(&self, value: u64) -> u64 {
         let mut value = value;
         while bits(&value) > bits(&self.order) {
@@ -122,17 +126,14 @@ impl PowerFiniteField {
         value
     }
 
-    pub fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> PrimePowerFieldElement {
-        let value = rng.gen_range(0..self.order);
-        PrimePowerFieldElement { value }
-    }
-
+    /// Initialize a new element within the field
     pub fn elem(&self, value: u64) -> PrimePowerFieldElement {
         PrimePowerFieldElement {
             value: self.reduce(value),
         }
     }
 
+    /// Perform Addition within the field
     pub fn add(
         self,
         lhs: PrimePowerFieldElement,
@@ -143,6 +144,12 @@ impl PowerFiniteField {
         PrimePowerFieldElement { value }
     }
 
+    /// Negate a value within the field
+    pub fn neg(self, value: PrimePowerFieldElement) -> PrimePowerFieldElement {
+        todo!()
+    }
+
+    /// Perform Multiplication within the field
     pub fn mult(
         self,
         lhs: PrimePowerFieldElement,
@@ -172,7 +179,16 @@ impl PowerFiniteField {
     }
 }
 
+impl rand::distributions::Distribution<PrimePowerFieldElement> for PowerFiniteField {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> PrimePowerFieldElement {
+        let value = rng.gen_range(0..self.order);
+        PrimePowerFieldElement { value }
+    }
+}
+
 #[derive(Clone, Copy)]
+/// A holder for an element of a field, because of strange life-times
+/// the prime power field element cannot hold a reference to the field. But if we could, that would be really nice.
 pub struct PrimePowerFieldElement {
     pub value: u64,
 }
@@ -219,6 +235,9 @@ impl std::cmp::PartialEq<u64> for FieldElement {
 /// A structure for containing a finite field, and arithmetic within that field.
 ///
 /// The value contained within the structure is the size of the field
+///
+/// This implementation is not correct, order MUST be prime for this to in fact be a finite field
+/// - must add this requirement to the code.
 #[derive(Clone, Copy)]
 pub struct FiniteField {
     order: u64,
@@ -366,5 +385,10 @@ mod test {
         });
 
         println!(", {},", res);
+    }
+
+    #[test]
+    fn primitive() {
+        println!("{:b}", Primitive::of_degree(7).poly.0)
     }
 }

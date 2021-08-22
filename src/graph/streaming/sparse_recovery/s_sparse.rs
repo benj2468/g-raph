@@ -13,6 +13,8 @@ use std::{collections::HashMap, fmt::Debug};
 /// Storage: O(tlog(t) + tlog(n))
 #[derive(Clone)]
 pub struct SparseRecovery<F: HashFunction> {
+    /// The domain of the sparse recover structure
+    n: u64,
     /// Sparsity Parameter
     ///
     /// Constant Space
@@ -20,10 +22,13 @@ pub struct SparseRecovery<F: HashFunction> {
     /// The Sparse Recovery Data Structures
     ///
     /// Stores O(2st) = O(slog(s/del))
-    structures: Vec<Vec<OneSparseRecovery>>,
+    structures: Vec<HashMap<u64, OneSparseRecovery>>,
     /// Hash Functions for hashing to the Sparse recovery systems
     /// Store O(t * HF bits)
     functions: Vec<F>,
+    /// One sparse recovery order calculation,
+    // this helps speed up finding a prime number for the OneSparseRecover finite field
+    order: u64,
 }
 
 impl<F: HashFunction> Debug for SparseRecovery<F> {
@@ -63,15 +68,7 @@ where
         println!("S-Sparse Setup: t: [{}], [{}] -> [{}]", t, n_pow, s_pow);
         let start = start_dur!();
 
-        let structures = (0..t)
-            .into_iter()
-            .map(|_| {
-                (0..s_pow)
-                    .into_iter()
-                    .map(|_| OneSparseRecovery::init_with_order(n, order))
-                    .collect()
-            })
-            .collect();
+        let structures = (0..t).into_iter().map(|_| HashMap::new()).collect();
 
         printdur!("Structured", start);
         let start = start_dur!();
@@ -89,6 +86,8 @@ where
             s,
             structures,
             functions,
+            n,
+            order,
         }
     }
 
@@ -97,6 +96,8 @@ where
         let Self {
             structures,
             functions,
+            n,
+            order,
             ..
         } = self;
         let (j, _) = token;
@@ -106,16 +107,10 @@ where
             .enumerate()
             .for_each(|(_, (recoveries, hasher))| {
                 let hashed_index = hasher.compute(j);
-                if let Some(recovery) = recoveries.get_mut(hashed_index) {
-                    recovery.feed(token);
-                } else {
-                    panic!(
-                        "ERROR HASHED INDEX OUT OF BOUNDS: {} \\in [{}]. Using hasher: {:?}",
-                        hashed_index,
-                        recoveries.len(),
-                        hasher
-                    );
-                }
+                recoveries
+                    .entry(hashed_index)
+                    .or_insert_with(|| OneSparseRecovery::init_with_order(*n, *order))
+                    .feed(token)
             });
     }
 
@@ -130,7 +125,7 @@ where
         let mut can_return = false;
 
         for (_, row) in self.structures.into_iter().enumerate() {
-            for (_, cell) in row.into_iter().enumerate() {
+            for (_, (_, cell)) in row.into_iter().enumerate() {
                 // #[cfg(test)]
                 // println!("Stream: {:?}", cell.clone().stream);
                 let res = cell.query();
@@ -211,7 +206,7 @@ mod test {
     }
 
     fn large_not_sparse() -> Option<HashMap<u64, i64>> {
-        let del = 2_u64.pow(10);
+        let del = 2_u64.pow(15);
         let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(
             2_097_152 / del,
             524_288 / 2 / del,
@@ -229,14 +224,13 @@ mod test {
 
     #[test]
     fn not_sparse_probability() {
-        let n = 10;
+        let n = 100;
 
         let mut incorrect = 0;
 
         for _ in 0..n {
             let res = large_not_sparse();
-            if let Some(res) = res {
-                println!("{}", res.len());
+            if res.is_some() {
                 incorrect += 1;
             }
         }

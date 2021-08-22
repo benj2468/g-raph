@@ -1,6 +1,6 @@
 //! Supporting randomized Hash Functions
-use rand::thread_rng;
-use std::{fmt::Debug, usize};
+use rand::{prelude::Distribution, thread_rng};
+use std::fmt::Debug;
 
 use super::finite_field::{PowerFiniteField, PrimePowerFieldElement};
 
@@ -12,16 +12,22 @@ pub trait HashFunction: Debug {
     /// Initialize a new hash function. This should
     fn init(n: u64, l: u64) -> Self;
     /// Computes the value of h(x), where h is the current hash function
-    fn compute(&self, x: u64) -> usize;
+    fn compute(&self, x: u64) -> u64;
     /// Computes the boolean value of h(x) = *0*, where h is the current hash function
     fn is_zero(&self, x: u64) -> bool {
         self.compute(x) == 0
     }
-    /// Random copy
+    /// Random copy; copy the hash function, using identical domain and range, but initialize new random components
     fn random_copy(&self) -> Self;
 }
 
 #[derive(Debug, Clone)]
+/// A Hash Function implementation that performs calculations within a prime power field using the following methodology
+///
+/// f(x) = ax + b; calculations all performed within F_{2^n} (the polynomial finite field of order 2^n)
+/// g(x) = rightmost l bits of f(x)
+///
+/// a and b are initialized at random upon generation of the function, they are both elements of F_{2^n}
 pub struct PowerFiniteFieldHasher {
     field: PowerFiniteField,
     a: PrimePowerFieldElement,
@@ -53,14 +59,14 @@ impl HashFunction for PowerFiniteFieldHasher {
         Self::init_a_b(field, field.sample(&mut rng), field.sample(&mut rng), l)
     }
 
-    fn compute(&self, x: u64) -> usize {
+    fn compute(&self, x: u64) -> u64 {
         let Self {
             a, b, field, mask, ..
         } = self;
 
         let x = field.elem(x);
 
-        (field.add(field.mult(*a, x), *b).value & mask) as usize
+        (field.add(field.mult(*a, x), *b).value & mask) as u64
     }
     fn random_copy(&self) -> Self {
         let mut rng = thread_rng();
@@ -91,7 +97,7 @@ mod test {
 
         let mut results: Vec<_> = (0..n)
             .into_iter()
-            .map(|_| HashMap::<(usize, usize), f32>::new())
+            .map(|_| HashMap::<(u64, u64), f32>::new())
             .collect();
 
         (0..n)
@@ -102,12 +108,7 @@ mod test {
             .for_each(|(a, b)| {
                 let hasher = PowerFiniteFieldHasher::init_a_b(field, a, b, l);
                 let one = hasher.compute(0);
-                // let other = hasher.compute(2);
-                // *results
-                //     .get_mut(2 as usize)
-                //     .unwrap()
-                //     .entry((one, other))
-                //     .or_default() += 1.0;
+
                 for other in 1..n {
                     let val = hasher.compute(other);
 
