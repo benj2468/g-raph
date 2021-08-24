@@ -3,7 +3,7 @@
 use itertools::Itertools;
 use rand::prelude::IteratorRandom;
 
-use crate::graph::Edge;
+use crate::graph::{Edge, Graphed};
 
 /// Uniform Distribution Generator
 pub struct UniformGraphDistribution {
@@ -54,6 +54,20 @@ impl UniformGraphDistribution {
             noise: self.noise,
             copies,
         }
+    }
+}
+
+impl<G: Graphed<u32, ()>> rand::distributions::Distribution<G> for UniformGraphDistribution {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> G {
+        let stream: Vec<_> = self.sample(rng);
+
+        let mut graph = G::new(Default::default());
+
+        for edge in stream {
+            graph.add_edge(edge.0)
+        }
+
+        graph
     }
 }
 

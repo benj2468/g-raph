@@ -129,8 +129,6 @@ fn fake_test() {
 #[test]
 #[ignore]
 fn erdos_renyi_sample_dense() {
-    graph_test!(
-        1500_f32,
-        BernoulliGraphDistribution::init(1500, 0.2).unwrap()
-    );
+    let n = 1000;
+    graph_test!(n as f32, BernoulliGraphDistribution::init(n, 0.2).unwrap());
 }

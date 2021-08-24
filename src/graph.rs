@@ -24,6 +24,7 @@ pub use edge::*;
 /// In our implementation, a graph is stored as an adjacency list form, or a HashMap of vertices to a set of EdgeDestinations. A graph is generic over the type of vertex, `T`, and the type of the edges weight: `W`
 pub trait Graphed<T, W>: Clone + Default + Sized {
     fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self;
+    fn adj_list(&self) -> &HashMap<T, HashSet<EdgeDestination<T, W>>>;
     fn vertices(&self) -> HashSet<&T>;
     fn get_neighbors(&self, vertex: &T) -> Option<&HashSet<EdgeDestination<T, W>>>;
     fn add_edge(&mut self, edge: Edge<T, W>);
@@ -92,6 +93,9 @@ where
     T: Debug + Hash + Eq + Clone + PartialOrd + Default,
     W: Debug + Hash + Eq + Clone + Default,
 {
+    fn adj_list(&self) -> &HashMap<T, HashSet<EdgeDestination<T, W>>> {
+        self.graph.adj_list()
+    }
     /// Runtime: O(nlog(n))
     fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self {
         let graph = Graph::new(adjacency_list);
@@ -174,6 +178,9 @@ where
     T: Hash + Eq + Clone + PartialOrd + Default,
     W: Hash + Eq + Clone + Default,
 {
+    fn adj_list(&self) -> &HashMap<T, HashSet<EdgeDestination<T, W>>> {
+        &self.adjacency_list
+    }
     /// Runtime: O(1)
     fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self {
         Self { adjacency_list }

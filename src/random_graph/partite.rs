@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use rand::distributions::{Bernoulli, BernoulliError};
 
-use crate::graph::Edge;
+use crate::graph::{Edge, Graphed};
 
 pub struct BernoulliPartiteGraph {
     /// Nodes
@@ -17,11 +17,25 @@ pub struct BernoulliPartiteGraph {
 }
 
 impl BernoulliPartiteGraph {
-    fn init(n: u32, p: f64, k: u32) -> Result<Self, BernoulliError> {
+    pub fn init(n: u32, p: f64, k: u32) -> Result<Self, BernoulliError> {
         if !(0.0..=1.0).contains(&p) {
             return Err(BernoulliError::InvalidProbability);
         }
         Ok(Self { n, p, k, copies: 1 })
+    }
+}
+
+impl<G: Graphed<u32, ()>> rand::distributions::Distribution<G> for BernoulliPartiteGraph {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> G {
+        let stream: Vec<_> = self.sample(rng);
+
+        let mut graph = G::new(Default::default());
+
+        for edge in stream {
+            graph.add_edge(edge.0)
+        }
+
+        graph
     }
 }
 
@@ -85,7 +99,7 @@ mod test {
         let mut rng = rand::thread_rng();
         let sampler = BernoulliPartiteGraph::init(50, 1.0, 10).unwrap();
 
-        let stream = sampler.sample(&mut rng);
+        let stream: Vec<_> = sampler.sample(&mut rng);
 
         let mut graph = GraphWithRecaller::new(Default::default());
 

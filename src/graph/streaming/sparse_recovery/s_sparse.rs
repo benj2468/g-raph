@@ -83,10 +83,10 @@ where
         printdur!("Functions", start);
 
         Self {
+            n,
             s,
             structures,
             functions,
-            n,
             order,
         }
     }
