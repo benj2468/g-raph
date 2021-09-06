@@ -5,6 +5,7 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::Hash,
+    str::FromStr,
 };
 
 use priority_queue::PriorityQueue;
@@ -23,15 +24,25 @@ pub use edge::*;
 ///
 /// In our implementation, a graph is stored as an adjacency list form, or a HashMap of vertices to a set of EdgeDestinations. A graph is generic over the type of vertex, `T`, and the type of the edges weight: `W`
 pub trait Graphed<T, W>: Clone + Default + Sized {
+    /// Create a new Graph, given the adjacency list of that graph
     fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self;
+    /// Fetch the adjacency list of a graph
     fn adj_list(&self) -> &HashMap<T, HashSet<EdgeDestination<T, W>>>;
+    /// Get all vertices in a graph
     fn vertices(&self) -> HashSet<&T>;
+    /// Get the neighbors of a provided vertex
     fn get_neighbors(&self, vertex: &T) -> Option<&HashSet<EdgeDestination<T, W>>>;
+    /// Add an edge to a graph, if the vertices of the edge do not exist, the edge is not added.
     fn add_edge(&mut self, edge: Edge<T, W>);
+    /// Remove an edge from a graph
     fn remove_edge(&mut self, edge: Edge<T, W>);
+    /// Remove a vertex, and all of it's incident edges from the graph
     fn remove_vertex(&mut self, vertex: &T);
+    /// Fetch the minimum degree of a graph
     fn min_degree(&self) -> Option<(T, usize)>;
+    /// Remove the vertex of minimum degree
     fn remove_min(&mut self) -> Option<T>;
+    /// Check if the graph is empty.
     fn is_empty(&self) -> bool;
 }
 
@@ -175,8 +186,8 @@ where
 
 impl<T, W> Graphed<T, W> for Graph<T, W>
 where
-    T: Hash + Eq + Clone + PartialOrd + Default,
-    W: Hash + Eq + Clone + Default,
+    T: Debug + Hash + Eq + Clone + PartialOrd + Default,
+    W: Debug + Hash + Eq + Clone + Default,
 {
     fn adj_list(&self) -> &HashMap<T, HashSet<EdgeDestination<T, W>>> {
         &self.adjacency_list
@@ -271,6 +282,56 @@ where
             self.remove_vertex(&vertex);
             vertex
         })
+    }
+}
+
+fn from_str<G, T, W>(s: &str) -> Result<G, <T as FromStr>::Err>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + Default + FromStr,
+    W: Debug + Hash + Eq + Clone + Default,
+    G: Graphed<T, W>,
+{
+    let mut graph = G::new(Default::default());
+    s.lines().into_iter().try_for_each(|line| {
+        let mut split = line.split(':');
+        split.next().unwrap().trim().parse().and_then(|vertex: T| {
+            split
+                .next()
+                .unwrap()
+                .trim()
+                .split(',')
+                .try_for_each(|neighbor| -> Result<(), _> {
+                    neighbor.parse().map(|neighbor| {
+                        let edge = Edge::<T, W>::init(vertex.clone(), neighbor);
+                        graph.add_edge(edge);
+                    })
+                })
+        })
+    })?;
+    Ok(graph)
+}
+
+impl<T, W> std::str::FromStr for Graph<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + Default + FromStr,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    type Err = <T as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        from_str(s)
+    }
+}
+
+impl<T, W> std::str::FromStr for GraphWithRecaller<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + Default + FromStr,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    type Err = <T as FromStr>::Err;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        from_str(s)
     }
 }
 

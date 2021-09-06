@@ -160,15 +160,7 @@ where
 mod test {
     use std::collections::HashSet;
 
-    use num_integer::binomial;
-    use num_traits::Pow;
-    use rand::prelude::Distribution;
-
-    use crate::{
-        graph::streaming::coloring::compute_s,
-        random_graph::{bernoulli::BernoulliGraphDistribution, uniform::UniformGraphDistribution},
-        utils::hash_function::PowerFiniteFieldHasher,
-    };
+    use crate::utils::hash_function::PowerFiniteFieldHasher;
 
     use super::*;
 
@@ -206,16 +198,14 @@ mod test {
     }
 
     fn large_not_sparse() -> Option<HashMap<u64, i64>> {
-        let del = 2_u64.pow(15);
+        let del = 2_u64.pow(5);
         let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(
             2_097_152 / del,
             524_288 / 2 / del,
             0.01,
         );
 
-        println!("{}", 1_012_098 / del);
         (0..1_012_098 / del)
-            // (0..15)
             .into_iter()
             .for_each(|token| recovery.feed((token, true)));
 
@@ -224,7 +214,7 @@ mod test {
 
     #[test]
     fn not_sparse_probability() {
-        let n = 100;
+        let n = 10;
 
         let mut incorrect = 0;
 
@@ -237,7 +227,7 @@ mod test {
 
         let probability = incorrect as f32 / n as f32;
         println!("{:?}", probability);
-        // assert!(probability <= 0.01);
+        assert!(probability <= 0.1);
     }
 
     #[test]
@@ -254,25 +244,5 @@ mod test {
 
         let probability = incorrect as f32 / n as f32;
         assert!(probability <= 0.01);
-    }
-
-    #[test]
-    fn large_vec() {
-        let res = {
-            let n = 100;
-            let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(
-                binomial(n as u64, 2),
-                compute_s(n).ceil() as u64,
-                0.01,
-            );
-
-            BernoulliGraphDistribution::init(n, 0.9)
-                .unwrap()
-                .for_each(|(edge, c)| recovery.feed((edge.to_d1(), c)));
-
-            recovery.query()
-        };
-
-        assert!(res.is_none())
     }
 }

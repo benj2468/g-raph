@@ -2,62 +2,55 @@
 
 use crate::graph::{edge::EdgeDestination, Graphed};
 use std::{
-    collections::{HashMap, LinkedList},
+    collections::{HashMap, HashSet, LinkedList},
     fmt::Debug,
     hash::Hash,
     ops::Add,
 };
 
-/// Allows for accomplishing various different actions through a DFS/BFS search algorithm
+/// Allows for accomplishing various actions through DFS/BFS search algorithm
 pub trait Searcher<T, W>: Default + Clone {
-    fn start(&self) -> Option<&T> {
-        None
-    }
     /// Called when there are no more vertices in the current search scope, and we need to look for a new, unconnected & unvisited vertex
-    fn new_component(&mut self);
-    /// Called before visiting a node. This is called BEFORE a node is processed. It is called when we find a new node from a source node.
+    ///
+    /// - *node*: The node that caused the new component
+    fn new_component(&mut self, node: &T);
+    /// This is called BEFORE a node is processed. It is called when we find a new node from a source node.
     ///
     /// i.e. when we pop it from the stack/queue
     ///
-    /// - *source*: The node that was just popped from the list
-    /// - *node*: The node that is a neighbor of source, including it's weight
+    /// - *source*: The node that was just popped from the stack/queue
+    /// - *node*: The node that is a neighbor of source, including it's label
     fn visit(&mut self, source: &T, node: &EdgeDestination<T, W>);
 }
 
 /// Search functions on a graph
-pub trait Search<T, W> {
-    fn breadth_first<S>(&self, searcher: S) -> S
+pub trait Search<'s, T, W> {
+    /// Standard Breadth First Search
+    ///
+    /// Clearly described [here](https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/)
+    fn breadth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
     where
         S: Searcher<T, W>;
-    fn depth_first<S>(&self, searcher: S) -> S
+    /// Standard Depth First Search
+    ///
+    /// Clearly described [here](https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/)
+    fn depth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
     where
         S: Searcher<T, W>;
 }
 
-impl<G, T, W> Search<T, W> for G
+impl<'s, G, T, W> Search<'s, T, W> for G
 where
     G: Graphed<T, W>,
     T: Hash + Eq + PartialOrd + Clone + Debug,
     W: Hash + Eq + Clone + Default,
 {
-    /// Performs Breadth First Search on a Graph
-    fn breadth_first<S>(&self, mut searcher: S) -> S
+    fn breadth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
     where
         S: Searcher<T, W>,
     {
-        let mut visited: HashMap<&T, bool> = self
-            .vertices()
-            .into_iter()
-            .map(|key| (key, false))
-            .collect();
-
-        let mut to_visit = LinkedList::<&T>::new();
-
-        let searcher2 = searcher.clone();
-
-        if let Some(start) = searcher2.start() {
-            to_visit.push_back(start);
-        }
+        let mut not_visited: HashSet<&T> = self.vertices();
+        let mut to_visit: LinkedList<&T> = vec![start].into_iter().collect();
 
         loop {
             if let Some(current) = to_visit.pop_front() {
@@ -65,15 +58,15 @@ where
                     for neighbor in neighbors {
                         let destination = &neighbor.destination;
                         searcher.visit(current, neighbor);
-                        if !visited.get(destination).unwrap() {
+                        if not_visited.get(destination).is_some() {
                             to_visit.push_back(destination);
                         }
                     }
                 }
-                visited.insert(current, true);
-            } else if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
+                not_visited.remove(current);
+            } else if let Some(next) = not_visited.iter().next() {
                 to_visit.push_back(next);
-                searcher.new_component();
+                searcher.new_component(next);
             } else {
                 break;
             }
@@ -82,23 +75,12 @@ where
         searcher
     }
 
-    /// Performs Depth First Search on a Graph
-    fn depth_first<S>(&self, mut searcher: S) -> S
+    fn depth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
     where
         S: Searcher<T, W>,
     {
-        let mut visited: HashMap<&T, bool> = self
-            .vertices()
-            .into_iter()
-            .map(|key| (key, false))
-            .collect();
-
-        let mut to_visit = LinkedList::<&T>::new();
-
-        let searcher2 = searcher.clone();
-        if let Some(start) = searcher2.start() {
-            to_visit.push_back(start)
-        }
+        let mut not_visited: HashSet<&T> = self.vertices();
+        let mut to_visit: LinkedList<&T> = vec![start].into_iter().collect();
 
         loop {
             if let Some(current) = to_visit.pop_back() {
@@ -106,16 +88,16 @@ where
                     for neighbor in neighbors {
                         let destination = &neighbor.destination;
                         searcher.visit(current, neighbor);
-                        if !visited.get(destination).unwrap() {
+                        if not_visited.get(destination).is_some() {
                             to_visit.push_back(destination);
                         }
                     }
                 }
 
-                visited.insert(current, true);
-            } else if let Some((next, _)) = visited.iter().find(|(_, visited)| !**visited) {
+                not_visited.remove(current);
+            } else if let Some(next) = not_visited.iter().next() {
                 to_visit.push_back(next);
-                searcher.new_component();
+                searcher.new_component(next);
             } else {
                 break;
             }
@@ -127,43 +109,34 @@ where
 
 /// Structure for maintaining backtracking data in a DFS or BFS search
 #[derive(Default, Clone, Debug)]
-pub struct BackTracking<T, W> {
-    pub start: Option<T>,
-    pub tracking: HashMap<T, (T, W)>,
-}
+pub struct BackTracking<T, W>(HashMap<T, (T, W)>);
 
 impl<T, W> Searcher<T, W> for BackTracking<T, W>
 where
-    T: Default + Eq + Hash + Clone + Debug,
-    W: Default + Eq + Hash + Clone + Add<Output = W> + PartialOrd + Debug,
+    T: Default + Eq + Hash + Clone + Debug + Copy,
+    W: Default + Eq + Hash + Clone + Add<Output = W> + PartialOrd + Debug + Copy,
 {
-    fn start(&self) -> Option<&T> {
-        self.start.as_ref()
-    }
-    fn new_component(&mut self) {}
+    fn new_component(&mut self, _node: &T) {}
     fn visit(&mut self, source: &T, node: &EdgeDestination<T, W>) {
-        let current = self
-            .tracking
-            .get(source)
-            .map(|(_, w)| w.clone())
-            .unwrap_or_default();
+        let current_label = self.0.get(source).map(|(_, w)| *w);
 
-        let next_label = node.label.clone();
+        let next_label = node.label;
         let destination = &node.destination;
 
-        let next_weight = current + next_label;
-        if let Some((vertex, score)) = self.tracking.get_mut(&destination) {
-            if next_weight < *score {
-                *vertex = source.clone();
-                *score = next_weight
-            }
-        } else {
-            self.tracking
-                .insert(destination.clone(), (source.clone(), next_weight));
-        }
+        let next_weight = current_label.map(|c| c + next_label).unwrap_or(next_label);
+        self.0
+            .get_mut(&destination)
+            .map(|(vertex, score)| {
+                if next_weight < *score {
+                    *vertex = *source;
+                    *score = next_weight
+                }
+            })
+            .unwrap_or_else(|| {
+                self.0.insert(*destination, (*source, next_weight));
+            });
     }
 }
-
 impl<T, W> BackTracking<T, W>
 where
     T: Eq + Hash + Clone,
@@ -172,7 +145,7 @@ where
         let mut path = vec![];
 
         let mut current = &target;
-        while let Some((node, _)) = self.tracking.get(current) {
+        while let Some((node, _)) = self.0.get(current) {
             path.push(node.clone());
             current = node;
         }
@@ -233,10 +206,11 @@ mod test {
                 .collect(),
         );
 
-        let back = Graph::new(adj).breadth_first(BackTracking {
-            start: Some(3),
+        let mut backtracking = BackTracking {
             ..Default::default()
-        });
+        };
+
+        let back = Graph::new(adj).breadth_first(&mut backtracking, &3);
 
         let expected: Vec<u32> = vec![3, 2, 1, 0];
 

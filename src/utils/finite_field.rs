@@ -59,9 +59,9 @@ impl Primitive {
                 .into_iter()
                 .collect();
 
-            for i in 1..(deg / 2) + 1 {
-                for j in i..(deg / 2) + 1 {
-                    if i * j == deg {
+            for i in 1..deg {
+                for j in i..deg {
+                    if i + j == deg {
                         let b_polys = 2_u64.pow(j as u32)..2_u64.pow(j as u32 + 1);
                         let a_polys = 2_u64.pow(i as u32)..2_u64.pow(i as u32 + 1);
                         a_polys

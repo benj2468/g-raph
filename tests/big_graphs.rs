@@ -1,7 +1,7 @@
 use g_raph::{
     self,
     graph::{
-        edge::Edge, static_a::coloring::Color, streaming::coloring::StreamColoring,
+        edge::Edge, static_a::coloring::Color, streaming::coloring::bcg::StreamColoring,
         GraphWithRecaller, Graphed,
     },
     printdur,
@@ -129,6 +129,6 @@ fn fake_test() {
 #[test]
 #[ignore]
 fn erdos_renyi_sample_dense() {
-    let n = 1000;
-    graph_test!(n as f32, BernoulliGraphDistribution::init(n, 0.2).unwrap());
+    let n = 1500;
+    graph_test!(n as f32, BernoulliGraphDistribution::init(n, 0.9).unwrap());
 }
