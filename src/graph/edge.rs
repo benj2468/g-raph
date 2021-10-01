@@ -4,7 +4,7 @@ use roots::find_roots_quadratic;
 use std::fmt::Debug;
 
 /// Undirected Edge
-#[derive(Debug, PartialEq, Eq, Hash, Default, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Edge<T, W> {
     /// If directed, the source
     v1: T,
@@ -12,6 +12,8 @@ pub struct Edge<T, W> {
     v2: T,
     /// The weight, or any label associated with the edge
     label: W,
+    // Whether or not the edge is directed
+    pub directed: bool,
 }
 
 impl<T, W> Edge<T, W>
@@ -25,6 +27,17 @@ where
             v1,
             v2,
             label: W::default(),
+            directed: false,
+        }
+    }
+
+    /// Creates a directed edge given two vertices
+    pub fn init_directed(v1: T, v2: T) -> Self {
+        Self {
+            v1,
+            v2,
+            label: W::default(),
+            directed: true,
         }
     }
 
@@ -49,6 +62,7 @@ where
             v1: self.v2,
             v2: self.v1,
             label: self.label,
+            directed: self.directed,
         }
     }
 }
@@ -70,6 +84,7 @@ where
                     v1: min as u32,
                     v2: max as u32,
                     label: W::default(),
+                    directed: false,
                 }
             }
             _ => panic!(

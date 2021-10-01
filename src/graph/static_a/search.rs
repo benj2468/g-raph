@@ -1,15 +1,16 @@
 //! Different Graph Search Algorithms
 
-use crate::graph::{edge::EdgeDestination, Graphed};
+use crate::graph::{edge::EdgeDestination, Edge, Graph, Graphed};
 use std::{
     collections::{HashMap, HashSet, LinkedList},
+    f32::INFINITY,
     fmt::Debug,
     hash::Hash,
     ops::Add,
 };
 
 /// Allows for accomplishing various actions through DFS/BFS search algorithm
-pub trait Searcher<T, W>: Default + Clone {
+pub trait Searcher<T, W> {
     /// Called when there are no more vertices in the current search scope, and we need to look for a new, unconnected & unvisited vertex
     ///
     /// - *node*: The node that caused the new component
@@ -28,13 +29,13 @@ pub trait Search<'s, T, W> {
     /// Standard Breadth First Search
     ///
     /// Clearly described [here](https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/)
-    fn breadth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
+    fn breadth_first<S>(&self, searcher: &'s mut S, start: Vec<&T>)
     where
         S: Searcher<T, W>;
     /// Standard Depth First Search
     ///
     /// Clearly described [here](https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/)
-    fn depth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
+    fn depth_first<S>(&self, searcher: &'s mut S, start: &T)
     where
         S: Searcher<T, W>;
 }
@@ -45,12 +46,12 @@ where
     T: Hash + Eq + PartialOrd + Clone + Debug,
     W: Hash + Eq + Clone + Default,
 {
-    fn breadth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
+    fn breadth_first<S>(&self, searcher: &'s mut S, start: Vec<&T>)
     where
         S: Searcher<T, W>,
     {
         let mut not_visited: HashSet<&T> = self.vertices();
-        let mut to_visit: LinkedList<&T> = vec![start].into_iter().collect();
+        let mut to_visit: LinkedList<&T> = start.into_iter().collect();
 
         loop {
             if let Some(current) = to_visit.pop_front() {
@@ -71,11 +72,9 @@ where
                 break;
             }
         }
-
-        searcher
     }
 
-    fn depth_first<S>(&self, searcher: &'s mut S, start: &T) -> &'s S
+    fn depth_first<S>(&self, searcher: &'s mut S, start: &T)
     where
         S: Searcher<T, W>,
     {
@@ -102,8 +101,6 @@ where
                 break;
             }
         }
-
-        searcher
     }
 }
 
@@ -113,7 +110,7 @@ pub struct BackTracking<T, W>(HashMap<T, (T, W)>);
 
 impl<T, W> Searcher<T, W> for BackTracking<T, W>
 where
-    T: Default + Eq + Hash + Clone + Debug + Copy,
+    T: Eq + Hash + Clone + Debug + Copy,
     W: Default + Eq + Hash + Clone + Add<Output = W> + PartialOrd + Debug + Copy,
 {
     fn new_component(&mut self, _node: &T) {}
@@ -156,6 +153,74 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ConnectedComponents<T, W>
+where
+    T: Default + Clone + Eq + Hash + Debug,
+    W: Default + Clone,
+{
+    max_size: usize,
+    current_component_open: bool,
+    pub data: Vec<Graph<T, W>>,
+}
+
+impl<T, W> Default for ConnectedComponents<T, W>
+where
+    T: Default + Clone + Eq + Hash + Debug,
+    W: Default + Clone,
+{
+    fn default() -> Self {
+        ConnectedComponents {
+            max_size: INFINITY as usize,
+            current_component_open: true,
+            data: vec![Default::default()],
+        }
+    }
+}
+
+impl<T, W> ConnectedComponents<T, W>
+where
+    T: Default + Clone + Eq + Hash + Debug,
+    W: Default + Clone,
+{
+    pub fn with_max_size(self, max_size: usize) -> Self {
+        let mut new = self;
+
+        new.max_size = max_size;
+
+        new
+    }
+}
+
+impl<T, W> Searcher<T, W> for ConnectedComponents<T, W>
+where
+    T: Default + Clone + Eq + Hash + Debug + PartialOrd,
+    W: Default + Clone + Hash + Eq + Debug,
+{
+    fn new_component(&mut self, _node: &T) {
+        let Self {
+            data,
+            current_component_open,
+            ..
+        } = self;
+        if *current_component_open {
+            data.push(Default::default())
+        }
+        *current_component_open = true;
+    }
+
+    fn visit(&mut self, source: &T, node: &EdgeDestination<T, W>) {
+        if let Some(last) = self.data.last_mut() {
+            if last.vertices().len() < self.max_size as usize {
+                last.add_edge(Edge::init(source.clone(), node.destination.clone()));
+            } else {
+                self.current_component_open = false;
+                *last = Default::default()
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::collections::{HashMap, HashSet};
@@ -165,55 +230,46 @@ mod test {
     use crate::graph::{EdgeDestination, Graph};
     #[test]
     fn test_graph() {
-        let mut adj: HashMap<u32, HashSet<EdgeDestination<u32, u32>>> = HashMap::new();
-        adj.insert(
-            0,
-            vec![EdgeDestination::init_with_label(2, 4)]
-                .into_iter()
-                .collect(),
-        );
-        adj.insert(
-            1,
-            vec![EdgeDestination::init_with_label(0, 2)]
-                .into_iter()
-                .collect(),
-        );
-        adj.insert(
-            2,
-            vec![
-                EdgeDestination::init_with_label(1, 1),
-                EdgeDestination::init_with_label(0, 10),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        adj.insert(
-            3,
-            vec![EdgeDestination::init_with_label(2, 4)]
-                .into_iter()
-                .collect(),
-        );
-        adj.insert(
-            4,
-            vec![EdgeDestination::init_with_label(5, 0)]
-                .into_iter()
-                .collect(),
-        );
-        adj.insert(
-            5,
-            vec![EdgeDestination::init_with_label(4, 0)]
-                .into_iter()
-                .collect(),
-        );
+        let graph: Graph<u32, u32> = r"2: 1,0
+        5: 4
+        4: 5
+        1: 0
+        0: 2
+        3: 2"
+            .parse()
+            .unwrap();
 
         let mut backtracking = BackTracking {
             ..Default::default()
         };
 
-        let back = Graph::new(adj).breadth_first(&mut backtracking, &3);
+        graph.breadth_first(&mut backtracking, vec![&3]);
 
-        let expected: Vec<u32> = vec![3, 2, 1, 0];
+        let expected: Vec<u32> = vec![3, 2, 0];
 
-        assert_eq!(expected, back.shortest_path(0));
+        assert_eq!(expected, backtracking.shortest_path(0));
+    }
+
+    #[test]
+    fn connected_components() {
+        let graph: Graph<u32, ()> = r"0: 1
+        1: 0,2
+        2: 1,5
+        5: 2
+        3: 4
+        4: 3"
+            .parse()
+            .unwrap();
+
+        let mut conn = ConnectedComponents::default().with_max_size(3);
+
+        graph.breadth_first(&mut conn, vec![&0]);
+
+        let expected_subgraph: Graph<u32, ()> = r"4: 3
+        3: 4"
+            .parse()
+            .unwrap();
+
+        assert_eq!(conn.data[0], expected_subgraph);
     }
 }

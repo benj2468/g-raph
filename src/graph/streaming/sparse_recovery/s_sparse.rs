@@ -1,7 +1,7 @@
 //! Generalized `s`-Sparse Recovery
 
 use super::one_sparse::{OneSparseRecovery, OneSparseRecoveryOutput};
-use crate::{printdur, start_dur, utils::hash_function::HashFunction};
+use crate::{graph::streaming::Query, printdur, start_dur, utils::hash_function::HashFunction};
 use num_primes::Generator;
 
 use std::{collections::HashMap, fmt::Debug};
@@ -33,7 +33,11 @@ pub struct SparseRecovery<F: HashFunction> {
 
 impl<F: HashFunction> Debug for SparseRecovery<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}-Sparse Recovery Structure", self.s)
+        write!(
+            f,
+            "---------\n[{}] -> [{}]-Sparse Recovery Structure\n---------",
+            self.n, self.s
+        )
     }
 }
 
@@ -47,6 +51,11 @@ where
     /// - *s* : Sparsity we wish to detect
     /// - *del* : Error probability controller
     pub fn init(n: u64, s: u64, del: f32) -> Self {
+        let mut s = s;
+        if n < s {
+            s = n
+        }
+
         let t = (s as f32 / del).log2().ceil() as u64;
 
         let order = {
@@ -65,22 +74,22 @@ where
         let n_pow = n.next_power_of_two();
         let s_pow = (2 * s).next_power_of_two();
 
-        println!("S-Sparse Setup: t: [{}], [{}] -> [{}]", t, n_pow, s_pow);
+        // println!("S-Sparse Setup: t: [{}], [{}] -> [{}]", t, n_pow, s_pow);
         let start = start_dur!();
 
         let structures = (0..t).into_iter().map(|_| HashMap::new()).collect();
 
-        printdur!("Structured", start);
+        // printdur!("Structured", start);
         let start = start_dur!();
 
         let hash_base = F::init(n_pow, s_pow);
-        printdur!("Hash Base", start);
+        // printdur!("Hash Base", start);
         let functions = (0..t)
             .into_iter()
             .map(|_| hash_base.random_copy())
             .collect();
 
-        printdur!("Functions", start);
+        // printdur!("Functions", start);
 
         Self {
             n,
@@ -101,6 +110,7 @@ where
             ..
         } = self;
         let (j, _) = token;
+
         structures
             .iter_mut()
             .zip(functions.iter())
@@ -126,8 +136,6 @@ where
 
         for (_, row) in self.structures.into_iter().enumerate() {
             for (_, (_, cell)) in row.into_iter().enumerate() {
-                // #[cfg(test)]
-                // println!("Stream: {:?}", cell.clone().stream);
                 let res = cell.query();
                 match res {
                     OneSparseRecoveryOutput::VeryLikely(lambda, i) => {
@@ -156,6 +164,15 @@ where
     }
 }
 
+impl<F> Query<Option<HashMap<u64, i64>>> for SparseRecovery<F>
+where
+    F: HashFunction,
+{
+    fn query(self) -> Option<HashMap<u64, i64>> {
+        self.query()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::collections::HashSet;
@@ -164,48 +181,20 @@ mod test {
 
     use super::*;
 
-    fn tiny_sparse() -> bool {
-        let stream: Vec<(u64, bool)> = vec![
-            (0, true),
-            (9, true),
-            (7, true),
-            (6, true),
-            (7, true),
-            (9, true),
-            (7, true),
-            (9, false),
-            (9, false),
-        ];
+    fn large_sparse() -> Option<HashMap<u64, i64>> {
+        let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(5000, 100, 0.01);
 
-        let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(10, 3, 0.01);
+        (0..90)
+            .into_iter()
+            .for_each(|token| recovery.feed((token, true)));
 
-        stream.into_iter().for_each(|token| recovery.feed(token));
-
-        let mut expected: HashSet<(u64, i64)> = HashSet::new();
-        expected.insert((0, 1));
-        expected.insert((6, 1));
-        expected.insert((7, 3));
-
-        recovery
-            .query()
-            .map(|actual| {
-                actual
-                    .into_iter()
-                    .collect::<HashSet<(u64, i64)>>()
-                    .is_subset(&expected)
-            })
-            .unwrap_or_default()
+        recovery.query()
     }
 
     fn large_not_sparse() -> Option<HashMap<u64, i64>> {
-        let del = 2_u64.pow(5);
-        let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(
-            2_097_152 / del,
-            524_288 / 2 / del,
-            0.01,
-        );
+        let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(5000, 100, 0.01);
 
-        (0..1_012_098 / del)
+        (0..400)
             .into_iter()
             .for_each(|token| recovery.feed((token, true)));
 
@@ -214,7 +203,7 @@ mod test {
 
     #[test]
     fn not_sparse_probability() {
-        let n = 10;
+        let n = 100;
 
         let mut incorrect = 0;
 
@@ -226,23 +215,34 @@ mod test {
         }
 
         let probability = incorrect as f32 / n as f32;
-        println!("{:?}", probability);
-        assert!(probability <= 0.1);
+        assert!(probability <= 0.01);
     }
 
     #[test]
     fn sparse_probability() {
-        let n = 10;
+        let n = 100;
 
         let mut incorrect = 0;
 
         for _ in 0..n {
-            if !tiny_sparse() {
+            let res = large_sparse();
+            if res.is_none() {
                 incorrect += 1;
             }
         }
 
         let probability = incorrect as f32 / n as f32;
         assert!(probability <= 0.01);
+    }
+
+    #[test]
+    fn test() {
+        let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(5000, 100, 0.01);
+
+        (0..400)
+            .into_iter()
+            .for_each(|token| recovery.feed((token, true)));
+
+        println!("{:?}", recovery.query())
     }
 }

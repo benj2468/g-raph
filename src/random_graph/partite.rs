@@ -90,7 +90,7 @@ mod test {
 
     use rand::prelude::Distribution;
 
-    use crate::graph::{static_a::coloring::Color, GraphWithRecaller, Graphed};
+    use crate::graph::{static_a::coloring::Colorer, GraphWithRecaller, Graphed};
 
     use super::*;
 

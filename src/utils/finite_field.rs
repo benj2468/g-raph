@@ -111,7 +111,7 @@ impl PowerFiniteField {
             panic!("Order of FField must be a power of two: {}", order);
         }
         let degree = (order as f64).log2() as u8;
-        println!("Degree: {:?}", degree);
+        // println!("Degree: {:?}", degree);
 
         Self::init_with_irreducible(order, Primitive::of_degree(degree))
     }

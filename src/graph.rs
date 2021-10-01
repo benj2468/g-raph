@@ -3,11 +3,12 @@
 use std::{
     cmp::Reverse,
     collections::{HashMap, HashSet},
-    fmt::Debug,
+    fmt::{Debug, Display},
     hash::Hash,
     str::FromStr,
 };
 
+use itertools::Itertools;
 use priority_queue::PriorityQueue;
 
 #[doc(hidden)]
@@ -23,7 +24,7 @@ pub use edge::*;
 /// W = Set of possible weights
 ///
 /// In our implementation, a graph is stored as an adjacency list form, or a HashMap of vertices to a set of EdgeDestinations. A graph is generic over the type of vertex, `T`, and the type of the edges weight: `W`
-pub trait Graphed<T, W>: Clone + Default + Sized {
+pub trait Graphed<T, W>: Clone + Sized + Debug {
     /// Create a new Graph, given the adjacency list of that graph
     fn new(adjacency_list: HashMap<T, HashSet<EdgeDestination<T, W>>>) -> Self;
     /// Fetch the adjacency list of a graph
@@ -44,6 +45,8 @@ pub trait Graphed<T, W>: Clone + Default + Sized {
     fn remove_min(&mut self) -> Option<T>;
     /// Check if the graph is empty.
     fn is_empty(&self) -> bool;
+    /// Has edge
+    fn has_edge(&self, edge: &Edge<T, W>) -> bool;
 }
 
 /// Simple Graph
@@ -101,7 +104,7 @@ where
 
 impl<T, W> Graphed<T, W> for GraphWithRecaller<T, W>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Default,
+    T: Debug + Hash + Eq + Clone + PartialOrd,
     W: Debug + Hash + Eq + Clone + Default,
 {
     fn adj_list(&self) -> &HashMap<T, HashSet<EdgeDestination<T, W>>> {
@@ -127,10 +130,13 @@ where
             v1.clone(),
             Reverse(self.graph.get_neighbors(v1).unwrap().len()),
         );
-        self.vertex_heap.push_decrease(
-            v2.clone(),
-            Reverse(self.graph.get_neighbors(v2).unwrap().len()),
-        );
+
+        if !edge.directed {
+            self.vertex_heap.push_decrease(
+                v2.clone(),
+                Reverse(self.graph.get_neighbors(v2).unwrap().len()),
+            );
+        }
     }
 
     fn remove_edge(&mut self, edge: Edge<T, W>) {
@@ -182,11 +188,15 @@ where
 
         None
     }
+
+    fn has_edge(&self, edge: &Edge<T, W>) -> bool {
+        self.graph.has_edge(edge)
+    }
 }
 
 impl<T, W> Graphed<T, W> for Graph<T, W>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Default,
+    T: Debug + Hash + Eq + Clone + PartialOrd,
     W: Debug + Hash + Eq + Clone + Default,
 {
     fn adj_list(&self) -> &HashMap<T, HashSet<EdgeDestination<T, W>>> {
@@ -257,10 +267,12 @@ where
         }
         graph.get_mut(&u).unwrap().insert((&edge).into());
 
-        if !graph.contains_key(&v) {
-            graph.insert(v.clone(), HashSet::new());
+        if !edge.directed {
+            if !graph.contains_key(&v) {
+                graph.insert(v.clone(), HashSet::new());
+            }
+            graph.get_mut(&v).unwrap().insert((&edge.reverse()).into());
         }
-        graph.get_mut(&v).unwrap().insert((&edge.reverse()).into());
     }
 
     fn remove_edge(&mut self, edge: Edge<T, W>) {
@@ -274,6 +286,13 @@ where
         graph
             .entry(v.clone())
             .and_modify(|set| set.retain(|dest| dest.destination != *u));
+
+        if graph.get(u).map(|u| u.is_empty()).unwrap_or_default() {
+            graph.remove(u);
+        }
+        if graph.get(v).map(|v| v.is_empty()).unwrap_or_default() {
+            graph.remove(v);
+        }
     }
 
     /// Runtime: O(n^2)
@@ -283,11 +302,20 @@ where
             vertex
         })
     }
+
+    /// Runtime: O(delta)
+    fn has_edge(&self, edge: &Edge<T, W>) -> bool {
+        let (u, v) = edge.vertices();
+        self.adjacency_list
+            .get(u)
+            .and_then(|neighbors| neighbors.iter().find(|dest| dest.destination == *v))
+            .is_some()
+    }
 }
 
 fn from_str<G, T, W>(s: &str) -> Result<G, <T as FromStr>::Err>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Default + FromStr,
+    T: Debug + Hash + Eq + Clone + PartialOrd + FromStr,
     W: Debug + Hash + Eq + Clone + Default,
     G: Graphed<T, W>,
 {
@@ -302,7 +330,7 @@ where
                 .split(',')
                 .try_for_each(|neighbor| -> Result<(), _> {
                     neighbor.parse().map(|neighbor| {
-                        let edge = Edge::<T, W>::init(vertex.clone(), neighbor);
+                        let edge = Edge::<T, W>::init_directed(vertex.clone(), neighbor);
                         graph.add_edge(edge);
                     })
                 })
@@ -311,9 +339,25 @@ where
     Ok(graph)
 }
 
+fn to_str<G, T, W>(graph: &G) -> String
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + Display,
+    W: Debug + Hash + Eq + Clone,
+    G: Graphed<T, W>,
+{
+    graph
+        .adj_list()
+        .iter()
+        .map(|(v, entry)| {
+            let set = entry.iter().map(|n| format!("{}", n.destination)).join(",");
+            format!("{}: {}", v, set)
+        })
+        .join("\n")
+}
+
 impl<T, W> std::str::FromStr for Graph<T, W>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Default + FromStr,
+    T: Debug + Hash + Eq + Clone + PartialOrd + FromStr,
     W: Debug + Hash + Eq + Clone + Default,
 {
     type Err = <T as FromStr>::Err;
@@ -325,13 +369,107 @@ where
 
 impl<T, W> std::str::FromStr for GraphWithRecaller<T, W>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Default + FromStr,
+    T: Debug + Hash + Eq + Clone + PartialOrd + FromStr,
     W: Debug + Hash + Eq + Clone + Default,
 {
     type Err = <T as FromStr>::Err;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         from_str(s)
+    }
+}
+
+impl<T, W> Display for Graph<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + Display,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "--- Graph ---\n{}\n---\n", to_str(self))
+    }
+}
+
+impl<T, W> Display for GraphWithRecaller<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + Display,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.graph)
+    }
+}
+
+impl<T, W> Iterator for Graph<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + FromStr,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    type Item = Edge<T, W>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Self { adjacency_list } = self;
+
+        let v1 = adjacency_list.iter().next().map(|e| e.0.clone());
+
+        if let Some(v1) = v1 {
+            let v2 = adjacency_list.get(&v1).and_then(|set| set.iter().next());
+
+            if let Some(v2) = v2 {
+                let edge = Edge::init(v1, v2.destination.clone());
+                self.remove_edge(edge.clone());
+                Some(edge)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl<T, W> Iterator for GraphWithRecaller<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + FromStr,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    type Item = Edge<T, W>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.graph.next().map(|next| {
+            self.remove_edge(next.clone());
+            next
+        })
+    }
+}
+
+impl<T, W> PartialEq for Graph<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + FromStr,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    fn eq(&self, other: &Self) -> bool {
+        let edges: HashSet<Edge<T, W>> = self.clone().into_iter().collect();
+        let other: HashSet<Edge<T, W>> = other.clone().into_iter().collect();
+
+        edges.difference(&other).count() == 0
+    }
+}
+
+impl<T, W> Graph<T, W>
+where
+    T: Debug + Hash + Eq + Clone + PartialOrd + FromStr,
+    W: Debug + Hash + Eq + Clone + Default,
+{
+    pub fn induce(self, vertices: HashSet<&T>) -> Self {
+        let mut new = self.clone();
+
+        for v in self.vertices().clone() {
+            if !vertices.contains(v) {
+                new.remove_vertex(v)
+            }
+        }
+
+        new
     }
 }
 

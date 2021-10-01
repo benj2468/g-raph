@@ -5,19 +5,21 @@ use rand::Rng;
 use super::super::*;
 use std::{cmp::max, collections::HashSet};
 
-type Coloring<T> = HashMap<T, usize>;
+pub type Coloring<T> = HashMap<T, usize>;
 
 /// Coloring a Graph
-pub trait Color<T, W> {
+pub trait Colorer<T, W> {
     /// Colors a graph using a specific technique outlined in [Lemma 2.6](https://arxiv.org/pdf/1905.00566.pdf#page=7)
     fn color_degeneracy(&self) -> Coloring<T>;
 
     fn randomized(&self) -> Coloring<T>;
 
     fn is_proper(&self, coloring: Coloring<T>) -> bool;
+
+    fn greedy(&self, color_options: Option<HashMap<T, HashSet<u32>>>) -> Coloring<T>;
 }
 
-impl<G, T, W> Color<T, W> for G
+impl<G, T, W> Colorer<T, W> for G
 where
     G: Graphed<T, W>,
     T: Hash + Eq + Copy + std::fmt::Debug + Default + PartialOrd,
@@ -114,7 +116,7 @@ where
                 for neighbor in neighbors {
                     if coloring
                         .get(&neighbor.destination)
-                        .expect("The provided coloring is not one for the provided graph")
+                        .unwrap_or_else(|| panic!("The provided coloring is not one for the provided graph, Could not find a color for: {:?}", neighbor.destination))
                         == color
                     {
                         return false;
@@ -123,6 +125,43 @@ where
             }
         }
         true
+    }
+
+    fn greedy(&self, options: Option<HashMap<T, HashSet<u32>>>) -> Coloring<T> {
+        let mut coloring: HashMap<T, usize> = HashMap::new();
+
+        for v in self.vertices() {
+            let neighbor_colors = self
+                .get_neighbors(&v)
+                .map(|set| {
+                    set.iter()
+                        .map(|e| e.destination)
+                        .filter_map(|e| coloring.get(&e))
+                        .cloned()
+                        .map(|a| a as u32)
+                        .collect::<HashSet<u32>>()
+                })
+                .unwrap_or_default();
+
+            if let Some(next_color) = options
+                .as_ref()
+                .map(|preset| {
+                    preset
+                        .get(v)
+                        .and_then(|colors| colors.difference(&neighbor_colors).next())
+                        .map(|a| *a as usize)
+                })
+                .unwrap_or_else(|| {
+                    (0..self.vertices().len())
+                        .into_iter()
+                        .find(|c| !neighbor_colors.contains(&(*c as u32)))
+                })
+            {
+                coloring.insert(*v, next_color);
+            }
+        }
+
+        coloring
     }
 }
 

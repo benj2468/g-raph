@@ -6,7 +6,7 @@ use rand::Rng;
 use std::{collections::HashMap, fmt::Debug};
 
 use crate::graph::{
-    static_a::coloring::Color, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
+    static_a::coloring::Colorer, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
     GraphWithRecaller, Graphed,
 };
 

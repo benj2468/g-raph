@@ -1,7 +1,7 @@
 use g_raph::{
     self,
     graph::{
-        edge::Edge, static_a::coloring::Color, streaming::coloring::bcg::StreamColoring,
+        edge::Edge, static_a::coloring::Colorer, streaming::coloring::bcg::StreamColoring,
         GraphWithRecaller, Graphed,
     },
     printdur,
