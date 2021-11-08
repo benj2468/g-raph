@@ -33,11 +33,27 @@ pub struct SparseRecovery<F: HashFunction> {
 
 impl<F: HashFunction> Debug for SparseRecovery<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "---------\n[{}] -> [{}]-Sparse Recovery Structure\n---------",
-            self.n, self.s
-        )
+        write!(f, "[{}] -> [{}]-Sparse Recovery Structure", self.n, self.s)
+    }
+}
+
+#[derive(Debug)]
+pub enum SparseRecoveryOutput<T> {
+    Pass(T),
+    NotSSparse,
+    Empty,
+    InConsistent,
+}
+
+impl<T> SparseRecoveryOutput<T>
+where
+    T: Default,
+{
+    pub fn unwrap_or_default(self) -> T {
+        match self {
+            Self::Pass(x) => x,
+            _ => T::default(),
+        }
     }
 }
 
@@ -74,6 +90,8 @@ where
         let n_pow = n.next_power_of_two();
         let s_pow = (2 * s).next_power_of_two();
 
+        println!("n: {:?} -> s: {:?}, t: {}", n_pow, s_pow, t);
+
         // println!("S-Sparse Setup: t: [{}], [{}] -> [{}]", t, n_pow, s_pow);
         let start = start_dur!();
 
@@ -83,7 +101,7 @@ where
         let start = start_dur!();
 
         let hash_base = F::init(n_pow, s_pow);
-        // printdur!("Hash Base", start);
+        printdur!("Hash Base", start);
         let functions = (0..t)
             .into_iter()
             .map(|_| hash_base.random_copy())
@@ -129,7 +147,7 @@ where
     /// The HashMap contains a mapping from indices which are part of the recovery to the values they contained.
     ///
     /// If the stream was not s-sparse, or if one of the one-sparse recovery systems got an answer wrong, then we return `None`.
-    pub fn query(self) -> Option<HashMap<u64, i64>> {
+    pub fn query(self) -> SparseRecoveryOutput<HashMap<u64, i64>> {
         let mut recovery = HashMap::new();
 
         let mut can_return = false;
@@ -144,11 +162,11 @@ where
                             .map(|val| val != &lambda)
                             .unwrap_or_default()
                         {
-                            return None;
+                            return SparseRecoveryOutput::InConsistent;
                         }
                         recovery.insert(i, lambda);
                         if recovery.keys().len() > self.s as usize {
-                            return None;
+                            return SparseRecoveryOutput::NotSSparse;
                         }
                         can_return = true
                     }
@@ -157,19 +175,10 @@ where
             }
         }
         if can_return {
-            Some(recovery)
+            SparseRecoveryOutput::Pass(recovery)
         } else {
-            None
+            SparseRecoveryOutput::Empty
         }
-    }
-}
-
-impl<F> Query<Option<HashMap<u64, i64>>> for SparseRecovery<F>
-where
-    F: HashFunction,
-{
-    fn query(self) -> Option<HashMap<u64, i64>> {
-        self.query()
     }
 }
 
@@ -181,7 +190,7 @@ mod test {
 
     use super::*;
 
-    fn large_sparse() -> Option<HashMap<u64, i64>> {
+    fn large_sparse() -> SparseRecoveryOutput<HashMap<u64, i64>> {
         let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(5000, 100, 0.01);
 
         (0..90)
@@ -191,7 +200,7 @@ mod test {
         recovery.query()
     }
 
-    fn large_not_sparse() -> Option<HashMap<u64, i64>> {
+    fn large_not_sparse() -> SparseRecoveryOutput<HashMap<u64, i64>> {
         let mut recovery = SparseRecovery::<PowerFiniteFieldHasher>::init(5000, 100, 0.01);
 
         (0..400)
@@ -209,7 +218,7 @@ mod test {
 
         for _ in 0..n {
             let res = large_not_sparse();
-            if res.is_some() {
+            if matches!(res, SparseRecoveryOutput::Pass(_)) {
                 incorrect += 1;
             }
         }
@@ -226,7 +235,7 @@ mod test {
 
         for _ in 0..n {
             let res = large_sparse();
-            if res.is_none() {
+            if !matches!(res, SparseRecoveryOutput::Pass(_)) {
                 incorrect += 1;
             }
         }

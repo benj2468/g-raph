@@ -159,8 +159,6 @@ where
     T: Default + Clone + Eq + Hash + Debug,
     W: Default + Clone,
 {
-    max_size: usize,
-    current_component_open: bool,
     pub data: Vec<Graph<T, W>>,
 }
 
@@ -171,24 +169,8 @@ where
 {
     fn default() -> Self {
         ConnectedComponents {
-            max_size: INFINITY as usize,
-            current_component_open: true,
             data: vec![Default::default()],
         }
-    }
-}
-
-impl<T, W> ConnectedComponents<T, W>
-where
-    T: Default + Clone + Eq + Hash + Debug,
-    W: Default + Clone,
-{
-    pub fn with_max_size(self, max_size: usize) -> Self {
-        let mut new = self;
-
-        new.max_size = max_size;
-
-        new
     }
 }
 
@@ -198,25 +180,13 @@ where
     W: Default + Clone + Hash + Eq + Debug,
 {
     fn new_component(&mut self, _node: &T) {
-        let Self {
-            data,
-            current_component_open,
-            ..
-        } = self;
-        if *current_component_open {
-            data.push(Default::default())
-        }
-        *current_component_open = true;
+        let Self { data, .. } = self;
+        data.push(Default::default())
     }
 
     fn visit(&mut self, source: &T, node: &EdgeDestination<T, W>) {
         if let Some(last) = self.data.last_mut() {
-            if last.vertices().len() < self.max_size as usize {
-                last.add_edge(Edge::init(source.clone(), node.destination.clone()));
-            } else {
-                self.current_component_open = false;
-                *last = Default::default()
-            }
+            last.add_edge(Edge::init(source.clone(), node.destination.clone()));
         }
     }
 }
@@ -261,7 +231,7 @@ mod test {
             .parse()
             .unwrap();
 
-        let mut conn = ConnectedComponents::default().with_max_size(3);
+        let mut conn = ConnectedComponents::default();
 
         graph.breadth_first(&mut conn, vec![&0]);
 
@@ -270,6 +240,6 @@ mod test {
             .parse()
             .unwrap();
 
-        assert_eq!(conn.data[0], expected_subgraph);
+        assert_eq!(conn.data[1], expected_subgraph);
     }
 }

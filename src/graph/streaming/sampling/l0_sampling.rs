@@ -1,46 +1,50 @@
 //! L0 Sampling - Broken b/c of hash functions being from [n(prime)] -> [l(=2^k)]
 
+use algebraics::traits::CeilLog2;
+
 use crate::graph::streaming::sparse_recovery::one_sparse::{
     OneSparseRecovery, OneSparseRecoveryOutput,
 };
 
 use crate::utils::hash_function::{HashFunction, PowerFiniteFieldHasher};
 
-/// L-0 Sampling Data Str
-pub trait L0Sampling {
-    /// Sample a coordinate at random from a high-demensional vector (vector of size n)
-    ///
-    /// In l-0-sampling we sample each coordinate with probability 1/||f||_0,
-    /// meaning uniformly from the set of all distinct coordinates
-    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i64)>;
+#[derive(Clone, Debug)]
+pub struct L0Sampler<H>
+where
+    H: HashFunction,
+{
+    inner: Vec<(OneSparseRecovery, H)>,
 }
 
-impl<T> L0Sampling for T
+impl<H> L0Sampler<H>
 where
-    T: core::iter::Iterator<Item = (u64, bool)> + Sized,
+    H: HashFunction,
 {
-    fn l_zero_sampling(self, n: u64, delta: f32) -> Option<(u64, i64)> {
-        // Initialization
-        let mut data_structure = vec![];
-        let order = (n as f32).log2() * (1_f32 / delta).log2();
-        for l in 0..order.round() as u64 {
-            let recover = OneSparseRecovery::init(n);
-            let hash_function = PowerFiniteFieldHasher::init(n, l);
+    pub fn init(n: u64, _delta: f32) -> Self {
+        let mut inner = vec![];
+        let n_pow = n.next_power_of_two();
 
-            data_structure.push((recover, hash_function));
+        for l in 0..n_pow.ceil_log2().unwrap() as u32 {
+            let recover = OneSparseRecovery::init(n_pow);
+            let hash_function = H::init(n_pow, 2_u64.pow(l));
+
+            inner.push((recover, hash_function));
         }
+        Self { inner }
+    }
 
-        // Process
-        self.for_each(|(j, c)| {
-            data_structure.iter_mut().for_each(|(recovery, hasher)| {
-                if hasher.is_zero(j) {
-                    recovery.feed((j, c))
-                }
-            })
-        });
+    pub fn feed(&mut self, token: (u64, bool)) {
+        let (j, c) = token;
 
-        // Output
-        for (recovery, _) in data_structure {
+        self.inner.iter_mut().for_each(|(recovery, hasher)| {
+            if hasher.is_zero(j) {
+                recovery.feed((j, c))
+            }
+        })
+    }
+
+    pub fn query(self) -> Option<(u64, i64)> {
+        for (recovery, _) in self.inner {
             let query = recovery.query();
             match query {
                 OneSparseRecoveryOutput::VeryLikely(l, i) => return Some((i, l)),

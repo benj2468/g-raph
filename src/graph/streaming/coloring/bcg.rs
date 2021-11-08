@@ -5,6 +5,7 @@ use num_integer::binomial;
 use rand::Rng;
 use std::{collections::HashMap, fmt::Debug};
 
+use crate::graph::streaming::sparse_recovery::s_sparse::SparseRecoveryOutput;
 use crate::graph::{
     static_a::coloring::Colorer, streaming::sparse_recovery::s_sparse::SparseRecovery, Edge,
     GraphWithRecaller, Graphed,
@@ -143,7 +144,7 @@ impl StreamColoring {
             .map(|color| ((0, color), Graphed::new(Default::default())))
             .collect();
 
-        if let Some(sparse_recovery_output) = sparse_recovery.query() {
+        if let SparseRecoveryOutput::Pass(sparse_recovery_output) = sparse_recovery.query() {
             sparse_recovery_output.iter().for_each(|(edge, _)| {
                 let edge = Edge::from_d1(*edge);
 

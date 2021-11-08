@@ -341,15 +341,20 @@ where
 
 fn to_str<G, T, W>(graph: &G) -> String
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Display,
+    T: Debug + Hash + Eq + Clone + PartialOrd + Display + Ord,
     W: Debug + Hash + Eq + Clone,
     G: Graphed<T, W>,
 {
     graph
         .adj_list()
         .iter()
+        .sorted_by_key(|(a, _)| *a)
         .map(|(v, entry)| {
-            let set = entry.iter().map(|n| format!("{}", n.destination)).join(",");
+            let set = entry
+                .iter()
+                .map(|n| format!("{}", n.destination))
+                .sorted()
+                .join(",");
             format!("{}: {}", v, set)
         })
         .join("\n")
@@ -381,7 +386,7 @@ where
 
 impl<T, W> Display for Graph<T, W>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Display,
+    T: Debug + Hash + Eq + Clone + PartialOrd + Display + Ord,
     W: Debug + Hash + Eq + Clone + Default,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -391,7 +396,7 @@ where
 
 impl<T, W> Display for GraphWithRecaller<T, W>
 where
-    T: Debug + Hash + Eq + Clone + PartialOrd + Display,
+    T: Debug + Hash + Eq + Clone + PartialOrd + Display + Ord,
     W: Debug + Hash + Eq + Clone + Default,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -478,6 +483,8 @@ pub mod streaming;
 
 #[cfg(test)]
 mod test {
+    use std::default;
+
     use super::*;
 
     #[test]
@@ -500,5 +507,17 @@ mod test {
             graph.vertex_heap.get_priority(&3).unwrap(),
             &Reverse(2_usize)
         );
+    }
+
+    #[test]
+    fn graph_to_iter() {
+        let graph: Graph<u32, ()> = r"0: 1
+        1: 0,2
+        2: 1,5
+        5: 2
+        3: 4
+        4: 3"
+            .parse()
+            .unwrap();
     }
 }

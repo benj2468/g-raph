@@ -1,3 +1,5 @@
+use std::{fmt::Debug, hash::Hash};
+
 use num_integer::binomial;
 
 use rand::{
@@ -5,7 +7,7 @@ use rand::{
     prelude::{Distribution, ThreadRng},
 };
 
-use crate::graph::Edge;
+use crate::graph::{Edge, Graph, Graphed};
 
 pub struct BernoulliGraphDistribution<T> {
     /// Nodes in the Graph
@@ -103,6 +105,27 @@ impl<T> rand::distributions::Distribution<Vec<(Edge<u32, ()>, bool)>>
             })
             .flatten()
             .collect()
+    }
+}
+
+impl rand::distributions::Distribution<Graph<u32, ()>> for BernoulliGraphDistribution<u32> {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Graph<u32, ()> {
+        let Self {
+            nodes,
+            bern,
+            copies,
+            ..
+        } = self;
+
+        let mut res = Graph::default();
+
+        let edges: Vec<_> = self.sample(rng);
+
+        for (edge, _) in edges {
+            res.add_edge(edge)
+        }
+
+        res
     }
 }
 

@@ -1,6 +1,9 @@
 //! Supporting Finite Field Arithmetic
 
-use std::{collections::HashSet, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 
 use algebraics::{
     mod_int::{Mod2, ModularInteger},
@@ -53,29 +56,68 @@ pub struct Primitive {
 
 impl Primitive {
     fn of_degree(deg: u8) -> Self {
-        let poly = {
-            let mut potential_polys: HashSet<u64> = (2_u64.pow(deg as u32)
-                ..2_u64.pow(deg as u32 + 1))
-                .into_iter()
-                .collect();
+        let cache: HashMap<u8, u64> = r"0: 1
+                    1: 3
+                    2: 7
+                    3: 13
+                    4: 23
+                    5: 37
+                    6: 127
+                    7: 147
+                    8: 381
+                    9: 539
+                    10: 1637
+                    11: 3593
+                    12: 4477
+                    13: 9087
+                    14: 20143
+                    15: 44329
+                    16: 71055
+                    17: 155539
+                    18: 264003
+                    19: 541793
+                    20: 1488323
+                    21: 2521657
+                    22: 4603619
+                    23: 10336353
+                    24: 27194213
+                    25: 34996847
+                    26: 115813931"
+            .split("\n")
+            .map(|line| {
+                let mut line_s = line.split(':');
+                let dig = line_s.next().unwrap().trim();
+                let prim = line_s.next().unwrap().trim();
+                (dig.parse().unwrap(), prim.parse().unwrap())
+            })
+            .collect();
 
-            for i in 1..deg {
-                for j in i..deg {
-                    if i + j == deg {
-                        let b_polys = 2_u64.pow(j as u32)..2_u64.pow(j as u32 + 1);
-                        let a_polys = 2_u64.pow(i as u32)..2_u64.pow(i as u32 + 1);
-                        a_polys
-                            .into_iter()
-                            .cartesian_product(b_polys)
-                            .map(|(lhs, rhs)| lhs * rhs)
-                            .for_each(|p| {
-                                potential_polys.remove(&p);
-                            })
+        let poly = match cache.get(&deg) {
+            Some(prim) => TwoPowerFieldPoly(*prim),
+            _ => {
+                let mut potential_polys: HashSet<u64> = (2_u64.pow(deg as u32)
+                    ..2_u64.pow(deg as u32 + 1))
+                    .into_iter()
+                    .collect();
+
+                for i in 1..deg {
+                    for j in i..deg {
+                        if i + j == deg {
+                            let b_polys = 2_u64.pow(j as u32)..2_u64.pow(j as u32 + 1);
+                            let a_polys = 2_u64.pow(i as u32)..2_u64.pow(i as u32 + 1);
+                            a_polys
+                                .into_iter()
+                                .cartesian_product(b_polys)
+                                .map(|(lhs, rhs)| lhs * rhs)
+                                .for_each(|p| {
+                                    potential_polys.remove(&p);
+                                })
+                        }
                     }
                 }
-            }
 
-            TwoPowerFieldPoly(potential_polys.into_iter().last().unwrap())
+                TwoPowerFieldPoly(potential_polys.into_iter().last().unwrap())
+            }
         };
 
         Self { deg, poly }
@@ -111,7 +153,6 @@ impl PowerFiniteField {
             panic!("Order of FField must be a power of two: {}", order);
         }
         let degree = (order as f64).log2() as u8;
-        // println!("Degree: {:?}", degree);
 
         Self::init_with_irreducible(order, Primitive::of_degree(degree))
     }
@@ -389,6 +430,8 @@ mod test {
 
     #[test]
     fn primitive() {
-        println!("{:b}", Primitive::of_degree(7).poly.0)
+        (0..27)
+            .into_iter()
+            .for_each(|d| println!("{}: {}", d, Primitive::of_degree(d).poly.0))
     }
 }

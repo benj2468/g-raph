@@ -1,15 +1,20 @@
 use g_raph::{
     self,
     graph::{
-        edge::Edge, static_a::coloring::Colorer, streaming::coloring::bcg::StreamColoring,
-        GraphWithRecaller, Graphed,
+        edge::Edge, static_a::coloring::Colorer,
+        streaming::coloring::ack::StreamColoring as ACKColorer,
+        streaming::coloring::bcg::StreamColoring, Graph, GraphWithRecaller, Graphed,
     },
     printdur,
     random_graph::bernoulli::BernoulliGraphDistribution,
     start_dur,
 };
 use itertools::Itertools;
+
+use rand::prelude::Distribution;
 use std::{
+    collections::HashSet,
+    convert::TryInto,
     f32::INFINITY,
     fs::File,
     io::{self, BufRead},
@@ -96,10 +101,64 @@ macro_rules! graph_file_test {
     }};
 }
 
+fn ack_test_graph(graph: Graph<u32, ()>) {
+    let max_degree: u32 = graph
+        .adj_list()
+        .values()
+        .map(|n| n.len())
+        .max()
+        .unwrap()
+        .try_into()
+        .unwrap();
+
+    let mut ack_colorer = ACKColorer::init(graph.vertices().into_iter().collect(), max_degree);
+
+    println!("Initialization: {:?}", ack_colorer);
+
+    // This should not need to be cloned
+    for edge in graph.clone() {
+        ack_colorer.feed((edge, true))
+    }
+
+    println!("Stream Completed");
+
+    let coloring = ack_colorer.query().unwrap();
+
+    println!("Colors Used: {:?}", coloring.values().unique().count());
+
+    assert!(graph.is_proper(coloring));
+}
+
+fn ack_test(file_name: &str, vertices: u32, separator: &str) {
+    let file = File::open(format!("./big_graphs/{}", file_name)).unwrap();
+
+    let mut graph = Graph::default();
+
+    io::BufReader::new(file)
+        .lines()
+        .filter_map(|r| r.ok())
+        .map(|line| {
+            let mut split = line.split(separator);
+            let v1: u32 = split.next().unwrap().parse().unwrap();
+            let v2: u32 = split.next().unwrap().parse().unwrap();
+
+            (Edge::<u32, ()>::init(v1, v2), true)
+        })
+        .for_each(|(edge, _)| graph.add_edge(edge));
+
+    ack_test_graph(graph);
+}
+
 #[test]
 #[ignore]
 fn facebook_combined() {
     graph_file_test!("facebook_combined.txt", 4_039_f32, " ");
+}
+
+#[test]
+#[ignore]
+fn facebook_combined_ack() {
+    ack_test("facebook_combined.txt", 4_039, " ");
 }
 
 #[test]
@@ -122,6 +181,12 @@ fn ratbrain() {
 
 #[test]
 #[ignore]
+fn ratbrain_ack() {
+    ack_test("ratbrain.txt", 496, " ");
+}
+
+#[test]
+#[ignore]
 fn fake_test() {
     graph_file_test!("fake.txt", 10_f32, " ");
 }
@@ -131,4 +196,14 @@ fn fake_test() {
 fn erdos_renyi_sample_dense() {
     let n = 1500;
     graph_test!(n as f32, BernoulliGraphDistribution::init(n, 0.9).unwrap());
+}
+
+#[test]
+#[ignore]
+fn erdos_renyi_sample_dense_ack() {
+    let n = 300;
+    let graph = BernoulliGraphDistribution::init(n, 0.9).unwrap();
+    let mut rng = rand::thread_rng();
+
+    ack_test_graph(graph.sample(&mut rng));
 }

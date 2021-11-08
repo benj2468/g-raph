@@ -14,7 +14,9 @@ pub trait Colorer<T, W> {
 
     fn randomized(&self) -> Coloring<T>;
 
-    fn is_proper(&self, coloring: Coloring<T>) -> bool;
+    fn is_proper(&self, coloring: &Coloring<T>) -> bool;
+
+    fn is_partial(&self, coloring: &Coloring<T>) -> bool;
 
     fn greedy(&self, color_options: Option<HashMap<T, HashSet<u32>>>) -> Coloring<T>;
 }
@@ -110,8 +112,8 @@ where
         coloring
     }
 
-    fn is_proper(&self, coloring: Coloring<T>) -> bool {
-        for (v, color) in &coloring {
+    fn is_proper(&self, coloring: &Coloring<T>) -> bool {
+        for (v, color) in coloring {
             if let Some(neighbors) = self.get_neighbors(&v) {
                 for neighbor in neighbors {
                     if coloring
@@ -119,6 +121,28 @@ where
                         .unwrap_or_else(|| panic!("The provided coloring is not one for the provided graph, Could not find a color for: {:?}", neighbor.destination))
                         == color
                     {
+                        println!("Coloring was not proper under the following vertices: {:?}, {:?}", neighbor.destination, v);
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    fn is_partial(&self, coloring: &Coloring<T>) -> bool {
+        for (v, color) in coloring {
+            if let Some(neighbors) = self.get_neighbors(&v) {
+                for neighbor in neighbors {
+                    if coloring
+                        .get(&neighbor.destination)
+                        .map(|c| c == color)
+                        .unwrap_or_default()
+                    {
+                        println!(
+                            "Coloring was not proper(partial) under the following vertices: {:?}, {:?}",
+                            neighbor.destination, v
+                        );
                         return false;
                     }
                 }
@@ -181,7 +205,7 @@ mod test {
 
         let coloring = graph.color_degeneracy();
 
-        assert!(graph.is_proper(coloring))
+        assert!(graph.is_proper(&coloring))
     }
 
     #[test]
@@ -192,6 +216,6 @@ mod test {
 
         let coloring = graph.randomized();
 
-        assert!(graph.is_proper(coloring))
+        assert!(graph.is_proper(&coloring))
     }
 }
